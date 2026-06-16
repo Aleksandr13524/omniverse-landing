@@ -196,7 +196,7 @@ canvas { display:block; }
 <script>
 // ═══════════════════════════════════════════════════════════════
 //  OMNIVERSE — ЛЕС МИЦЕЛИЯ (финал)
-//  Исправлено направление движения, густой лес, день/ночь, стартовый экран
+//  Исправлено: движение вперёд (от камеры), добавлены горы и кусты
 // ═══════════════════════════════════════════════════════════════
 
 // ─── СЛОГАНЫ ──────────────────────────────────────────────
@@ -241,7 +241,7 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.0;
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x05070a, 0.006);
+scene.fog = new THREE.FogExp2(0x05070a, 0.005);
 
 const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 120);
 
@@ -385,6 +385,60 @@ function createPortal(x,z,ry) {
   return grp;
 }
 
+// ─── НОВЫЕ ОБЪЕКТЫ: ГОРЫ И КУСТЫ ──────────────────────────
+function createMountain(x,z) {
+  const g = new THREE.Group();
+  const height = 3 + Math.random() * 6;
+  const radius = 1.5 + Math.random() * 3;
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0.15 + Math.random()*0.1, 0.2 + Math.random()*0.1, 0.1 + Math.random()*0.05),
+    roughness: 0.9,
+    flatShading: true
+  });
+  // Используем конус с небольшой случайностью
+  const segments = 5 + Math.floor(Math.random()*4);
+  const geom = new THREE.ConeGeometry(radius, height, segments);
+  const mesh = new THREE.Mesh(geom, mat);
+  mesh.position.y = height/2;
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  g.add(mesh);
+  // Небольшой снег на вершине (светлый слой)
+  if (height > 4 && Math.random() > 0.5) {
+    const snowMat = new THREE.MeshStandardMaterial({ color: 0x8899aa, roughness: 0.7 });
+    const snow = new THREE.Mesh(new THREE.ConeGeometry(radius*0.5, height*0.2, segments), snowMat);
+    snow.position.y = height - height*0.1;
+    snow.castShadow = true;
+    g.add(snow);
+  }
+  g.position.set(x, 0, z);
+  // Случайный поворот
+  g.rotation.y = Math.random() * Math.PI * 2;
+  return g;
+}
+
+function createBush(x,z) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0.1 + Math.random()*0.15, 0.3 + Math.random()*0.3, 0.05 + Math.random()*0.1),
+    roughness: 0.8
+  });
+  const count = 3 + Math.floor(Math.random()*4);
+  for (let i=0; i<count; i++) {
+    const size = 0.2 + Math.random() * 0.4;
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(size, 5, 5), mat);
+    sphere.position.set(
+      (Math.random()-0.5)*0.6,
+      size * 0.6 + Math.random()*0.2,
+      (Math.random()-0.5)*0.6
+    );
+    sphere.castShadow = true;
+    g.add(sphere);
+  }
+  g.position.set(x, 0, z);
+  return g;
+}
+
 // ─── ГЕНЕРАЦИЯ МИРА ──────────────────────────────────────
 const WORLD_RADIUS = 120;
 const VISIBILITY_RADIUS = 50;
@@ -442,6 +496,29 @@ function generateWorld() {
     const mesh = createEnemy(x,z);
     scene.add(mesh);
     worldObjects.push({ mesh, type:'enemy', x, z, active:false, enemyData: mesh.userData });
+  }
+
+  // ─── ГОРЫ (30) ──────────────────────────────────────────
+  for (let i=0; i<30; i++) {
+    const angle = Math.random()*Math.PI*2;
+    const dist = 8 + Math.random() * (WORLD_RADIUS-8);
+    const x = Math.cos(angle)*dist;
+    const z = Math.sin(angle)*dist;
+    const mesh = createMountain(x,z);
+    scene.add(mesh);
+    worldObjects.push({ mesh, type:'mountain', x, z, active:false });
+  }
+
+  // ─── КУСТЫ (200) ──────────────────────────────────────────
+  for (let i=0; i<200; i++) {
+    const angle = Math.random()*Math.PI*2;
+    const dist = 3 + Math.random() * (WORLD_RADIUS-3);
+    const x = Math.cos(angle)*dist;
+    const z = Math.sin(angle)*dist;
+    if (Math.sqrt(x*x+z*z) < 2) continue;
+    const mesh = createBush(x,z);
+    scene.add(mesh);
+    worldObjects.push({ mesh, type:'bush', x, z, active:false });
   }
 
   // Портал (4)
@@ -805,9 +882,12 @@ function update(dt) {
   // День/ночь
   updateDayNight(dt);
 
-  // Направление движения (вперёд по камере)
-  const forward = new THREE.Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw));
+  // ========== ИСПРАВЛЕНИЕ: движение ВПЕРЁД (от камеры) ==========
+  // Раньше: forward = (-sin(camYaw), 0, -cos(camYaw)) — это направление от игрока к камере.
+  // Теперь: forward = (sin(camYaw), 0, cos(camYaw)) — направление от камеры к игроку (вперёд).
+  const forward = new THREE.Vector3(Math.sin(camYaw), 0, Math.cos(camYaw));
   forward.normalize();
+  // Правая сторона перпендикулярна forward в горизонтальной плоскости
   const right = new THREE.Vector3(Math.cos(camYaw), 0, -Math.sin(camYaw));
   right.normalize();
 
@@ -896,13 +976,13 @@ function update(dt) {
     }
   }
 
-  // Обновление персонажа (поворот по движению, без лишнего PI)
+  // Обновление персонажа (поворот по движению)
   if (playerGroup) {
     playerGroup.position.set(player.x, player.y, player.z);
     const moveDir = new THREE.Vector3(moveX, 0, moveZ);
     if (moveDir.length() > 0.1) {
       let angle = Math.atan2(moveDir.x, moveDir.z);
-      // НЕ добавляем PI — персонаж смотрит в направлении движения
+      // Персонаж смотрит в направлении движения (без дополнительного разворота)
       playerGroup.rotation.y = angle;
     }
     // Анимация бега
@@ -989,12 +1069,10 @@ initIntro();
 
 document.getElementById('enterGameBtn').addEventListener('click', () => {
   document.getElementById('introScreen').classList.add('hidden');
-  // Запускаем игру, если ещё не запущена
   if (!window._gameStarted) {
     window._gameStarted = true;
     generateWorld();
     updateVisibility(player.x, player.z);
-    // Начинаем анимацию
     animate(0);
   }
 });
@@ -1027,11 +1105,9 @@ CHARS.forEach((def, i) => {
 
 // Кнопка рестарта (фиксация суверенитета)
 document.getElementById('restartBtn').addEventListener('click', () => {
-  // Закрываем Mini App через Telegram API
   if (window.Telegram && window.Telegram.WebApp) {
     window.Telegram.WebApp.close();
   } else {
-    // fallback
     alert('Суверенитет зафиксирован!');
     resetGame();
   }
@@ -1047,7 +1123,7 @@ function animate(time) {
   renderer.render(scene, camera);
 }
 
-console.log('🌳 OMNIVERSE — ЛЕС МИЦЕЛИЯ (финал)');
+console.log('🌳 OMNIVERSE — ЛЕС МИЦЕЛИЯ (финал, движение исправлено, горы и кусты добавлены)');
 console.log('🖱 Зажмите и тащите для вращения камеры (горизонт/вертикаль)');
 console.log('🌀 Портал телепортирует в случайную точку.');
 console.log('🍄 Соберите 200 грибов для победы.');
