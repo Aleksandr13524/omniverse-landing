@@ -3,78 +3,190 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>OMNIVERSE — 3D RUNNER</title>
+<title>OMNIVERSE — ЛЕС МИЦЕЛИЯ</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
-body { background:#020802; font-family:'Courier New',monospace; overflow:hidden; height:100dvh; user-select:none; }
+body { background:#05070a; font-family:'Share Tech Mono','Courier New',monospace; overflow:hidden; height:100dvh; user-select:none; }
 canvas { display:block; }
 
+/* ─── СТАРТОВЫЙ ЭКРАН (терминал) ─── */
+#introScreen {
+  position:fixed; inset:0; z-index:200;
+  background:#05070a;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  padding:30px 20px;
+  transition: opacity 1s ease;
+}
+#introScreen.hidden { opacity:0; pointer-events:none; }
+#introScreen .logo {
+  font-family:'Orbitron',sans-serif; font-weight:900;
+  font-size:clamp(32px,10vw,52px); letter-spacing:0.12em;
+  background:linear-gradient(90deg,#00f0ff 0%,#a855f7 30%,#00f0ff 50%,#a855f7 70%,#00f0ff 100%);
+  background-size:200% auto;
+  -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+  animation:shimmer 3s linear infinite;
+  filter:drop-shadow(0 0 18px rgba(0,240,255,0.5));
+}
+@keyframes shimmer { 0%{background-position:0%} 100%{background-position:200%} }
+#introScreen .sub {
+  font-size:11px; letter-spacing:0.25em; color:#a855f7; text-shadow:0 0 8px #a855f7;
+  margin-top:4px; margin-bottom:20px;
+}
+#introScreen .logs {
+  width:100%; max-width:600px;
+  font-size:13px; line-height:1.8;
+  color:#00f0ff; text-align:left;
+  padding:10px 0;
+  border-top:1px dashed rgba(0,240,255,0.2);
+  border-bottom:1px dashed rgba(0,240,255,0.2);
+  margin-bottom:20px;
+  max-height:300px; overflow:hidden;
+}
+#introScreen .log-line { opacity:0; animation:fadeIn 0.4s forwards; margin-bottom:4px; }
+#introScreen .log-line .ok { color:#00ff66; text-shadow:0 0 8px #00ff66; }
+#introScreen .log-line .warn { color:#ff9900; text-shadow:0 0 8px #ff9900; }
+#introScreen .log-line .err { color:#ff0055; text-shadow:0 0 8px #ff0055; }
+@keyframes fadeIn { to { opacity:1; } }
+#introScreen .enter-btn {
+  display:inline-block; padding:14px 32px;
+  border:2px solid #00ff66; color:#00ff66;
+  text-shadow:0 0 10px #00ff66;
+  box-shadow:0 0 20px rgba(0,255,102,0.25), inset 0 0 20px rgba(0,255,102,0.05);
+  font-family:'Share Tech Mono',monospace; font-size:14px; letter-spacing:0.15em;
+  cursor:pointer; animation:pulse 2s infinite;
+  background:transparent;
+}
+#introScreen .enter-btn:active { background:rgba(0,255,102,0.1); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.6} }
+
+/* ─── ИГРОВОЙ HUD ─── */
 #info-panel {
   position:fixed; top:0; left:0; right:0;
-  background:rgba(2,8,2,0.92);
+  background:rgba(5,7,10,0.88);
   border-bottom:1px solid #0a2a0a;
   display:flex; align-items:center;
-  padding:10px 16px; gap:16px; height:52px; z-index:10;
+  padding:8px 16px; gap:16px; height:48px; z-index:10;
 }
-.info-title { font-size:14px; color:#00FF41; letter-spacing:4px; text-shadow:0 0 12px #00FF41; }
+.info-title { font-size:13px; color:#00FF41; letter-spacing:4px; text-shadow:0 0 12px #00FF41; }
 .info-sep { color:#0a2a0a; }
-.info-char { font-size:11px; color:#00AA2A; letter-spacing:2px; }
-.info-lvl  { font-size:10px; color:#1a4a1a; }
-.info-counter { margin-left:auto; font-size:14px; color:#00FF41; letter-spacing:2px; font-weight:bold; }
+.info-char { font-size:10px; color:#00AA2A; letter-spacing:1px; }
+.info-lvl  { font-size:9px; color:#1a4a1a; }
+.info-counter { margin-left:auto; font-size:13px; color:#00FF41; letter-spacing:2px; font-weight:bold; }
 
 #ui {
   position:fixed; bottom:0; left:0; right:0;
-  background:rgba(2,8,2,0.95); border-top:1px solid #0a2a0a;
-  display:flex; align-items:stretch; height:72px; z-index:10;
+  background:rgba(5,7,10,0.92); border-top:1px solid #0a2a0a;
+  display:flex; align-items:stretch; height:64px; z-index:10;
 }
 .char-btn {
   flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:3px; cursor:pointer; border-right:1px solid #0a2a0a; transition:background 0.2s; padding:6px 4px;
+  gap:2px; cursor:pointer; border-right:1px solid #0a2a0a; transition:background 0.2s; padding:4px 2px;
 }
 .char-btn:last-child { border-right:none; }
 .char-btn:hover, .char-btn.active { background:rgba(0,255,65,0.06); }
 .char-btn.active { border-top:2px solid var(--col); }
-.btn-dot { width:10px; height:10px; border-radius:50%; }
-.btn-name { font-size:9px; color:#8aaa8a; letter-spacing:1px; }
-.btn-class { font-size:8px; color:#1a4a1a; letter-spacing:1px; }
+.btn-dot { width:8px; height:8px; border-radius:50%; }
+.btn-name { font-size:8px; color:#8aaa8a; letter-spacing:0.5px; }
+.btn-class { font-size:7px; color:#1a4a1a; letter-spacing:0.5px; }
 
 #controls-hint {
-  position:fixed; bottom:85px; left:50%; transform:translateX(-50%);
-  font-size:10px; color:rgba(0,255,65,0.4); letter-spacing:2px; pointer-events:none; text-align:center;
+  position:fixed; bottom:70px; left:50%; transform:translateX(-50%);
+  font-size:9px; color:rgba(0,255,65,0.3); letter-spacing:2px; pointer-events:none; text-align:center;
   z-index:15;
 }
 
 #game-overlay {
-  position:fixed; inset:0; background:rgba(2,8,2,0.85);
+  position:fixed; inset:0; background:rgba(5,7,10,0.88);
   display:none; flex-direction:column; align-items:center; justify-content:center;
   z-index:100; color:#00FF41; text-align:center; padding:20px;
 }
-.overlay-title { font-size:24px; letter-spacing:6px; margin-bottom:10px; text-shadow:0 0 10px #00FF41; }
-.overlay-text { font-size:12px; color:#8aaa8a; max-width:300px; line-height:1.6; margin-bottom:20px; }
+.overlay-title { font-size:22px; letter-spacing:6px; margin-bottom:8px; text-shadow:0 0 10px #00FF41; }
+.overlay-text { font-size:12px; color:#8aaa8a; max-width:300px; line-height:1.6; margin-bottom:16px; }
+.overlay-slogan { font-size:14px; color:#FFD700; margin:8px 0; letter-spacing:1px; }
 .btn-restart {
   background:transparent; border:1px solid #00FF41; color:#00FF41;
-  padding:10px 24px; font-family:inherit; font-size:12px; cursor:pointer; box-shadow:0 0 8px rgba(0,255,65,0.2);
+  padding:10px 20px; font-family:inherit; font-size:11px; cursor:pointer; box-shadow:0 0 8px rgba(0,255,65,0.2);
 }
+
+#slogan-popup {
+  position:fixed; bottom:78px; left:50%; transform:translateX(-50%);
+  background:rgba(5,7,10,0.92);
+  border:1px solid #00FF41;
+  padding:8px 16px;
+  font-size:10px; color:#00FF41;
+  letter-spacing:1px;
+  opacity:0; transition:opacity 0.5s;
+  pointer-events:none; z-index:20;
+  max-width:90%; text-align:center;
+  box-shadow:0 0 30px rgba(0,255,65,0.1);
+}
+#slogan-popup.show { opacity:1; }
+#slogan-popup .author { font-size:7px; color:#1a4a1a; margin-top:3px; }
+
+#mushroom-counter {
+  position:fixed; top:54px; right:12px;
+  background:rgba(5,7,10,0.8);
+  border:1px solid #0a2a0a;
+  padding:4px 12px;
+  font-size:13px; color:#00FF41;
+  z-index:10;
+  letter-spacing:2px;
+}
+
+/* ─── ПОГОДА / ВРЕМЯ ─── */
+#time-indicator {
+  position:fixed; top:54px; left:12px;
+  background:rgba(5,7,10,0.8);
+  border:1px solid #0a2a0a;
+  padding:4px 10px;
+  font-size:10px; color:#a0c0a0;
+  z-index:10;
+  letter-spacing:1px;
+  display:flex; align-items:center; gap:6px;
+}
+#time-indicator .icon { font-size:14px; }
 </style>
 </head>
 <body>
 
+<!-- ─── СТАРТОВЫЙ ЭКРАН ─── -->
+<div id="introScreen">
+  <div class="logo">OMNIVERSE</div>
+  <div class="sub">TELEGRAM MINI APP · MULTIVERSE MMO</div>
+  <div class="logs" id="introLogs"></div>
+  <button class="enter-btn" id="enterGameBtn">[ ВОЙТИ В ИГРУ ]</button>
+</div>
+
+<!-- ─── ИГРОВОЙ HUD ─── -->
 <div id="info-panel">
   <div class="info-title">OMNIVERSE</div>
   <div class="info-sep">//</div>
   <div>
-    <div class="info-char" id="char-name">ЗАГРУЗКА...</div>
-    <div class="info-lvl" id="char-lvl">LVL 0 · 0♥</div>
+    <div class="info-char" id="char-name">ПАША — ПОИСК МИЦЕЛИЯ</div>
+    <div class="info-lvl" id="char-lvl">LVL 1 · 3♥ · FREE</div>
   </div>
-  <div class="info-counter" id="cassette-hud">🍄 0/5</div>
+  <div class="info-counter" id="cassette-hud">🍄 0/200</div>
 </div>
 
-<div id="controls-hint">← СВАЙП ВЛЕВО/ВПРАВО · ТАП ДЛЯ ПРЫЖКА →</div>
+<div id="mushroom-counter">🍄 <span id="mush-count">0</span>/200</div>
+
+<div id="time-indicator">
+  <span class="icon" id="weatherIcon">☀</span>
+  <span id="timeLabel">ДЕНЬ</span>
+</div>
+
+<div id="controls-hint">← ЗАЖАТИЕ ДЛЯ КАМЕРЫ · ДВОЙНОЙ ТАП ДЛЯ ПРЫЖКА →</div>
+
+<div id="slogan-popup">
+  <div id="slogan-text">Свобода — это право быть невидимым.</div>
+  <div class="author" id="slogan-author">— Манифест Telegram</div>
+</div>
 
 <div id="game-overlay">
-  <div class="overlay-title" id="overlay-header">МИЦЕЛИЙ ДОСТИГНУТ</div>
-  <div class="overlay-text" id="overlay-desc">Вы успешно собрали 5 утерянных кассет данных и вошли в симуляцию грибного межа.</div>
-  <button class="btn-restart" onclick="resetGame()">НАЧАТЬ ЗАНОВО</button>
+  <div class="overlay-title" id="overlayTitle">СВОБОДНЫЙ УЗЕЛ АКТИВИРОВАН</div>
+  <div class="overlay-slogan" id="overlaySlogan">"Твой личный цифровой архив без ограничений"</div>
+  <div class="overlay-text" id="overlayDesc">Вы собрали 200 грибов Мицелия. Сеть Telegram теперь защищена.</div>
+  <button class="btn-restart" id="restartBtn">◈ ЗАФИКСИРОВАТЬ СУВЕРЕНИТЕТ ◈</button>
 </div>
 
 <canvas id="c"></canvas>
@@ -82,525 +194,345 @@ canvas { display:block; }
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ═══════════════════════════════════════════════════
-//  3D ENGINE SETUP (адаптирован под открытый мир с островами)
-// ═══════════════════════════════════════════════════
-const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setClearColor(0x020802);
-renderer.shadowMap.enabled = true;
-renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+// ═══════════════════════════════════════════════════════════════
+//  OMNIVERSE — ЛЕС МИЦЕЛИЯ (финал)
+//  Исправлено направление движения, густой лес, день/ночь, стартовый экран
+// ═══════════════════════════════════════════════════════════════
 
-const W = ()=>innerWidth, H = ()=>innerHeight-72-52;
-renderer.setSize(W(), H());
-canvas.style.marginTop = '52px';
-
-const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x020802, 0.025); // туман, скрывающий далёкие части
-
-const camera = new THREE.PerspectiveCamera(55, W()/H(), 0.1, 80);
-camera.position.set(0, 6, 8);
-camera.lookAt(0, 0, -4);
-
-// ── СВЕТ ───────────────────────────────────────────
-scene.add(new THREE.AmbientLight(0x112211, 1.8));
-const keyLight = new THREE.DirectionalLight(0x00FF41, 2.5);
-keyLight.position.set(8, 12, 4);
-keyLight.castShadow = true;
-keyLight.shadow.mapSize.width = 1024;
-keyLight.shadow.mapSize.height = 1024;
-keyLight.shadow.camera.near = 1;
-keyLight.shadow.camera.far = 30;
-keyLight.shadow.camera.left = -15;
-keyLight.shadow.camera.right = 15;
-keyLight.shadow.camera.top = 15;
-keyLight.shadow.camera.bottom = -15;
-scene.add(keyLight);
-
-const fillLight = new THREE.DirectionalLight(0x225522, 1.0);
-fillLight.position.set(-5, 4, -2);
-scene.add(fillLight);
-
-const rimLight = new THREE.PointLight(0x00FF41, 2.0, 20);
-rimLight.position.set(0, 5, -8);
-scene.add(rimLight);
-
-// ── ДЕКОРАТИВНЫЕ ЧАСТИЦЫ (светлячки) ──────────────
-const pGeo = new THREE.BufferGeometry();
-const pCount = 300;
-const pArr = new Float32Array(pCount * 3);
-const pSizes = new Float32Array(pCount);
-for(let i=0; i<pCount; i++){
-  pArr[i*3] = (Math.random()-0.5)*40;
-  pArr[i*3+1] = Math.random()*8 + 1;
-  pArr[i*3+2] = -Math.random()*60 - 5;
-  pSizes[i] = 0.05 + Math.random()*0.1;
-}
-pGeo.setAttribute('position', new THREE.BufferAttribute(pArr,3));
-pGeo.setAttribute('size', new THREE.BufferAttribute(pSizes,1));
-const pMat = new THREE.PointsMaterial({
-  color:0x00FF41,
-  size:0.12,
-  transparent:true,
-  opacity:0.6,
-  blending:THREE.AdditiveBlending,
-  sizeAttenuation:true
-});
-const particles = new THREE.Points(pGeo, pMat);
-scene.add(particles);
-
-// ═══════════════════════════════════════════════════
-//  ВОКСЕЛЬНЫЙ СТРОИТЕЛЬ (персонажи)
-// ═══════════════════════════════════════════════════
-function voxel(w, h, d, color, emissive=0x000000, emissInt=0) {
-  return new THREE.Mesh(
-    new THREE.BoxGeometry(w,h,d),
-    new THREE.MeshStandardMaterial({
-      color, roughness:0.6, metalness:0.1,
-      emissive, emissiveIntensity: emissInt
-    })
-  );
-}
-function add(grp, mesh, x, y, z) {
-  mesh.position.set(x,y,z);
-  mesh.castShadow = true;
-  mesh.receiveShadow = true;
-  grp.add(mesh);
-  return mesh;
-}
-
-function buildCharacter(def) {
-  const G = new THREE.Group();
-  const {
-    skin, shirt, pants, boots, accent, glowCol,
-    headW=0.72, headH=0.72, headD=0.72, bodyW=0.72, bodyH=1.0, bodyD=0.44,
-    shoulderExtra=0, armW=0.28, armH=0.9, armD=0.28, legW=0.3, legH=0.9, legD=0.3,
-    hasHelmet=false, helmetCol=0x333333, hasVisor=false, visorCol=0x4488FF,
-    hasHair=false, hairCol=0x111111, hasBeard=false, hasBackpack=false, backpackCol=0x223322,
-    hasWeapon=false, weaponDef=null, hasArmor=false, armorCol=0x334433, hasCape=false, capeCol=0x220011,
-    hasHat=false, hatCol=0x111111, hasMushroom=false, hasEars=false, earCol=0x553300
-  } = def;
-
-  const BY = legH + bodyH/2;
-  const HY = BY + bodyH/2 + headH/2;
-
-  G.legLGroup = new THREE.Group(); G.legLGroup.position.set(-(legW/2+0.02), legH, 0); G.add(G.legLGroup);
-  G.legRGroup = new THREE.Group(); G.legRGroup.position.set((legW/2+0.02), legH, 0); G.add(G.legRGroup);
-  const m_legL = voxel(legW, legH, legD, pants); m_legL.position.y = -legH/2; G.legLGroup.add(m_legL);
-  const m_legR = voxel(legW, legH, legD, pants); m_legR.position.y = -legH/2; G.legRGroup.add(m_legR);
-  const bootL = voxel(legW+0.06, 0.2, legD+0.1, boots); add(G.legLGroup, bootL, 0, -legH+0.1, 0.05);
-  const bootR = voxel(legW+0.06, 0.2, legD+0.1, boots); add(G.legRGroup, bootR, 0, -legH+0.1, 0.05);
-
-  const body = voxel(bodyW, bodyH, bodyD, shirt); add(G, body, 0, BY, 0);
-  if(hasArmor) {
-    const sL = voxel(0.18+shoulderExtra, 0.35, bodyD+0.1, armorCol, glowCol, 0.1); add(G, sL, -(bodyW/2+0.09+shoulderExtra/2), BY+0.25, 0);
-    const sR = voxel(0.18+shoulderExtra, 0.35, bodyD+0.1, armorCol, glowCol, 0.1); add(G, sR, (bodyW/2+0.09+shoulderExtra/2), BY+0.25, 0);
-  }
-  if(hasCape) { const cape = voxel(bodyW-0.1, bodyH*0.9, 0.08, capeCol); add(G, cape, 0, BY-0.05, -(bodyD/2+0.05)); }
-
-  G.armLGroup = new THREE.Group(); G.armLGroup.position.set(-(bodyW/2+armW/2+0.04), BY+0.3, 0); G.add(G.armLGroup);
-  G.armRGroup = new THREE.Group(); G.armRGroup.position.set((bodyW/2+armW/2+0.04), BY+0.3, 0); G.add(G.armRGroup);
-  const m_armL = voxel(armW, armH, armD, shirt); m_armL.position.y = -armH/2; G.armLGroup.add(m_armL);
-  const m_armR = voxel(armW, armH, armD, shirt); m_armR.position.y = -armH/2; G.armRGroup.add(m_armR);
-  const gloveL = voxel(armW+0.06, 0.18, armD+0.06, accent); add(G.armLGroup, gloveL, 0, -armH+0.09, 0);
-  const gloveR = voxel(armW+0.06, 0.18, armD+0.06, accent); add(G.armRGroup, gloveR, 0, -armH+0.09, 0);
-
-  const head = voxel(headW, headH, headD, skin); add(G, head, 0, HY, 0);
-  const eyeL = voxel(0.12, 0.1, 0.05, 0x001100, glowCol, 0.8); add(G, eyeL, -0.16, HY+0.04, headD/2+0.01);
-  const eyeR = voxel(0.12, 0.1, 0.05, 0x001100, glowCol, 0.8); add(G, eyeR, 0.16, HY+0.04, headD/2+0.01);
-  const mouth = voxel(0.22, 0.07, 0.04, 0x001100); add(G, mouth, 0, HY-0.18, headD/2+0.01);
-
-  if(hasHair) {
-    const hair = voxel(headW+0.04, 0.2, headD+0.04, hairCol); add(G, hair, 0, HY+headH/2+0.06, 0);
-    const bang = voxel(headW, 0.18, 0.12, hairCol); add(G, bang, 0, HY+headH/2-0.02, headD/2+0.02);
-  }
-  if(hasBeard) { const beard = voxel(headW-0.1, 0.22, 0.1, hairCol||0x332200); add(G, beard, 0, HY-headH/2+0.02, headD/2+0.02); }
-  if(hasEars) {
-    const eL = voxel(0.1, 0.28, 0.12, earCol); add(G, eL, -(headW/2+0.06), HY+0.06, 0);
-    const eR = voxel(0.1, 0.28, 0.12, earCol); add(G, eR, (headW/2+0.06), HY+0.06, 0);
-  }
-  if(hasHelmet) {
-    const helm = voxel(headW+0.1, headH*0.65, headD+0.1, helmetCol); add(G, helm, 0, HY+0.05, 0);
-    if(hasVisor) { const visor = voxel(headW-0.1, 0.18, 0.06, visorCol, visorCol, 1.2); add(G, visor, 0, HY+0.06, headD/2+0.08); }
-  }
-  if(hasHat) {
-    const brim = voxel(headW+0.3, 0.08, headD+0.3, hatCol); add(G, brim, 0, HY+headH/2+0.04, 0);
-    const top2 = voxel(headW-0.1, 0.45, headD-0.1, hatCol); add(G, top2, 0, HY+headH/2+0.04+0.27, 0);
-  }
-  if(hasBackpack) {
-    const bp = voxel(0.5, 0.7, 0.28, backpackCol); add(G, bp, 0, BY+0.1, -(bodyD/2+0.18));
-    const bpTop = voxel(0.3, 0.2, 0.2, backpackCol); add(G, bpTop, 0, BY+0.52, -(bodyD/2+0.18));
-  }
-  if(hasMushroom) {
-    const stem = voxel(0.14, 0.25, 0.14, 0x88AA88); add(G, stem, 0.18, HY+headH/2+0.23, 0);
-    const cap = voxel(0.38, 0.18, 0.38, accent, accent, 0.3); add(G, cap, 0.18, HY+headH/2+0.42, 0);
-  }
-
-  if(hasWeapon && weaponDef) {
-    const w = weaponDef;
-    const wGrp = new THREE.Group();
-    if(w.type==='sword') {
-      const blade = voxel(0.1, 0.9, 0.08, w.col||0x88AAAA, w.col||0x88AAAA, 0.2); wGrp.add(blade); blade.position.y = 0.5;
-      const guard = voxel(0.3, 0.08, 0.1, accent); wGrp.add(guard);
-      const hilt  = voxel(0.09, 0.3, 0.09, accent); wGrp.add(hilt); hilt.position.y = -0.18;
-      wGrp.position.set(0, -armH, 0.1); wGrp.rotation.x = Math.PI/3;
-    }
-    if(w.type==='rifle') {
-      const stock  = voxel(0.12, 0.14, 0.7, w.col||0x223322); wGrp.add(stock);
-      const barrel = voxel(0.08, 0.08, 0.5, 0x334433); wGrp.add(barrel); barrel.position.set(0, 0.1, 0.2);
-      const grip   = voxel(0.1, 0.3, 0.12, w.col||0x223322); wGrp.add(grip); grip.position.set(0,-0.16,-0.1);
-      wGrp.position.set(0, -armH, 0.2); wGrp.rotation.x = Math.PI/2;
-    }
-    if(w.type==='staff') {
-      const staff = voxel(0.08, 1.5, 0.08, w.col||0x442200); wGrp.add(staff); staff.position.y=0.4;
-      const orb   = voxel(0.26, 0.26, 0.26, accent, accent, 1.0); wGrp.add(orb); orb.position.y=1.2;
-      wGrp.position.set(0, -armH+0.2, 0.1);
-    }
-    if(w.type==='crowbar') {
-      const bar = voxel(0.08, 0.85, 0.08, w.col||0x445544); wGrp.add(bar); bar.position.y=0.3;
-      const tip = voxel(0.22, 0.08, 0.08, w.col||0x445544); wGrp.add(tip); tip.position.y=0.78;
-      wGrp.position.set(0, -armH, 0.1); wGrp.rotation.x = Math.PI/4;
-    }
-    if(w.type==='cannon') {
-      const barrel = voxel(0.3, 0.3, 0.8, w.col||0x334433); wGrp.add(barrel); barrel.position.z=0.1;
-      const base   = voxel(0.44, 0.2, 0.44, 0x223322); wGrp.add(base);
-      wGrp.position.set(0, -armH, 0); wGrp.rotation.x = Math.PI/2;
-    }
-    G.armRGroup.add(wGrp);
-  }
-
-  const badge = voxel(0.22, 0.16, 0.06, accent, accent, 0.8); add(G, badge, 0, BY+0.15, bodyD/2+0.02);
-
-  G.circleGeo = new THREE.RingGeometry(0.5, 0.65, 16);
-  G.circleMat = new THREE.MeshBasicMaterial({ color:accent, side:THREE.DoubleSide, transparent:true, opacity:0.4 });
-  const pCircle = new THREE.Mesh(G.circleGeo, G.circleMat);
-  pCircle.rotation.x = -Math.PI/2;
-  pCircle.position.y = 0.02;
-  G.add(pCircle);
-
-  G.scale.setScalar(0.85);
-  G._def = def;
-  return G;
-}
-
-// ═══════════════════════════════════════════════════
-//  ХАРАКТЕРИСТИКИ ЛИГ ПЕРСОНАЖЕЙ (сохранены)
-// ═══════════════════════════════════════════════════
-const CHARS = [
-  { id:'you', name:'ВЫ — НОЧНОЙ ОХОТНИК', league:'SOULS', lvl:'LVL 7', lives:'12.5♥', skin:0x3A5A3A, shirt:0x1A3A1A, pants:0x0F2A0F, boots:0x0A1A0A, accent:0x00FF41, glowCol:0x00FF41, hasHair:true, hairCol:0x002200, hasArmor:true, armorCol:0x1A3A1A, shoulderExtra:0.06, hasCape:true, capeCol:0x001100, hasWeapon:true, weaponDef:{type:'sword', col:0x00FF41} },
-  { id:'pubg', name:'ARKADY_V — ДЕСАНТНИК', league:'PUBG', lvl:'LVL 12', lives:'34.1♥', skin:0x8B7355, shirt:0x3A4A2A, pants:0x2A3A1A, boots:0x1A2A0A, accent:0xFFAA00, glowCol:0xFFCC44, hasHelmet:true, helmetCol:0x2A3A1A, hasArmor:true, armorCol:0x3A4A2A, shoulderExtra:0.04, hasBackpack:true, backpackCol:0x2A3020, hasWeapon:true, weaponDef:{type:'rifle', col:0x3A4A2A} },
-  { id:'tank', name:'TANK_PILOT — КОМАНДИР', league:'ТАНКИ', lvl:'LVL 5', lives:'8.9♥', skin:0x6A5A4A, shirt:0x2A2A3A, pants:0x1A1A2A, boots:0x111120, accent:0xFF4444, glowCol:0xFF2222, hasHelmet:true, helmetCol:0x2A2A3A, hasVisor:true, visorCol:0xFF4444, hasArmor:true, armorCol:0x2A2A4A, shoulderExtra:0.14, hasWeapon:true, weaponDef:{type:'cannon', col:0x2A2A3A} },
-  { id:'souls', name:'NIGHTFOX — ВЕДЬМАК', league:'SOULS', lvl:'LVL 19', lives:'91.0♥', skin:0x4A3A2A, shirt:0x1A0A1A, pants:0x120812, boots:0x0A060A, accent:0xAA44FF, glowCol:0xCC66FF, hasHair:true, hairCol:0x110022, hasBeard:true, hasCape:true, capeCol:0x1A0022, hasHat:true, hatCol:0x0A0015, hasWeapon:true, weaponDef:{type:'staff', col:0x2A1A0A} },
-  { id:'free', name:'GHOST_88 — ВОЛЬНЫЙ', league:'FREE', lvl:'LVL 3', lives:'3.2♥', skin:0x7AAA7A, shirt:0x2A6A2A, pants:0x1A4A1A, boots:0x0F2A0F, accent:0x44FF44, glowCol:0x00FF41, hasHair:true, hairCol:0x115511, hasMushroom:true },
-  { id:'freeman', name:'FREEMAN — УЧЁНЫЙ', league:'FREEMAN', lvl:'LVL 8', lives:'22.0♥', skin:0x8A7060, shirt:0x3A3A3A, pants:0x2A2A2A, boots:0x1A1A1A, accent:0xFF8800, glowCol:0xFF6600, hasHair:true, hairCol:0x1A0A00, hasBeard:true, hasArmor:true, armorCol:0xFF6600, shoulderExtra:0.08, hasWeapon:true, weaponDef:{type:'crowbar', col:0x445544} }
+// ─── СЛОГАНЫ ──────────────────────────────────────────────
+const SLOGANS = [
+  { text: "Скорость — это религия. Конфиденциальность — это право.", author: "Манифест Telegram" },
+  { text: "Твой личный цифровой архив без ограничений по объёму.", author: "Telegram Cloud" },
+  { text: "Мгновенный отклик — это уважение к пользователю.", author: "Философия Telegram" },
+  { text: "Телефон — это просто окно в твою среду.", author: "Архитектура Telegram" },
+  { text: "Мы не доверяем сторонним облакам.", author: "Суверенность Telegram" },
+  { text: "Свобода от алгоритмов — контроль над вниманием.", author: "Принцип Telegram" },
+  { text: "Сложное делать простым, тяжелое — легким.", author: "Кредо Telegram" },
+  { text: "Когда ломается интернет — остается Telegram.", author: "Надёжность" },
+  { text: "Твой номер — только для защиты от бот-сетей.", author: "Приватность" },
+  { text: "Мы сами контролируем железо.", author: "Суверенитет" },
+  { text: "Свобода — это право быть невидимым.", author: "Цифровой суверенитет" },
+  { text: "Твои данные — твоя территория.", author: "OMNIVERSE" },
+  { text: "Цифровой суверенитет начинается с тебя.", author: "Манифест" },
+  { text: "Приватность — это не роскошь, это право.", author: "Telegram" },
+  { text: "Шифруй свои мысли, защищай свою душу.", author: "MTProto" },
+  { text: "Анонимность — щит слабых и сильных.", author: "Свобода" },
+  { text: "Свободный узел — свободный разум.", author: "Mycelium" },
+  { text: "Информация — сила, приватность — власть.", author: "Цифровая эра" },
+  { text: "Не дай алгоритмам украсть твою суть.", author: "Предупреждение" },
+  { text: "Твой голос в сети — твой суверенитет.", author: "Право голоса" },
+  { text: "Суверенная архитектура — наше будущее.", author: "Telegram DC" },
+  { text: "Вся сеть работает на наших дата-центрах.", author: "Инфраструктура" },
+  { text: "MTProto — быстрый, как автоматный выстрел.", author: "Протокол" },
+  { text: "Облако синхронизируется мгновенно.", author: "Технология" },
+  { text: "История — это не обуза для телефона.", author: "Облачное хранение" },
+  { text: "Один щелчок регулятора — и тебя выключили.", author: "Урок истории" },
 ];
 
-// ═══════════════════════════════════════════════════
-//  ГЕНЕРАЦИЯ МИРА С ОСТРОВАМИ (стиль Dota)
-// ═══════════════════════════════════════════════════
-const worldGroup = new THREE.Group();
-scene.add(worldGroup);
+// ─── CANVAS SETUP ──────────────────────────────────────────
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,1.5));
+renderer.setClearColor(0x05070a);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.shadowMap.bias = 0.0005;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
 
-// Простой шум Перлина для генерации высот (inline реализация)
-class Perlin {
-  constructor() {
-    this.p = new Uint8Array(512);
-    const perm = new Uint8Array(256);
-    for (let i = 0; i < 256; i++) perm[i] = i;
-    // shuffle
-    for (let i = 255; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [perm[i], perm[j]] = [perm[j], perm[i]];
-    }
-    for (let i = 0; i < 512; i++) this.p[i] = perm[i & 255];
-  }
-  fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
-  lerp(a, b, t) { return a + t * (b - a); }
-  grad(hash, x, y, z) {
-    const h = hash & 15;
-    const u = h < 8 ? x : y;
-    const v = h < 4 ? y : (h === 12 || h === 14 ? x : z);
-    return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
-  }
-  noise(x, y, z) {
-    const X = Math.floor(x) & 255, Y = Math.floor(y) & 255, Z = Math.floor(z) & 255;
-    x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
-    const u = this.fade(x), v = this.fade(y), w = this.fade(z);
-    const p = this.p;
-    const A = p[X] + Y, AA = p[A] + Z, AB = p[A + 1] + Z;
-    const B = p[X + 1] + Y, BA = p[B] + Z, BB = p[B + 1] + Z;
-    return this.lerp(
-      this.lerp(this.lerp(this.grad(p[AA], x, y, z), this.grad(p[BA], x-1, y, z), u),
-                this.lerp(this.grad(p[AB], x, y-1, z), this.grad(p[BB], x-1, y-1, z), u), v),
-      this.lerp(this.lerp(this.grad(p[AA+1], x, y, z-1), this.grad(p[BA+1], x-1, y, z-1), u),
-                this.lerp(this.grad(p[AB+1], x, y-1, z-1), this.grad(p[BB+1], x-1, y-1, z-1), u), v), w);
-  }
-}
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x05070a, 0.006);
 
-const perlin = new Perlin();
+const camera = new THREE.PerspectiveCamera(50, 1, 0.1, 120);
 
-// Храним все объекты для коллизий и сбора
-let worldObjects = {
-  trees: [],
-  fences: [],
-  mushrooms: [],
-  enemies: []
-};
+// ─── ОСВЕЩЕНИЕ (динамическое день/ночь) ──────────────────
+const ambient = new THREE.AmbientLight(0x112211, 1.2);
+scene.add(ambient);
+const keyLight = new THREE.DirectionalLight(0x00FF41, 2.0);
+keyLight.position.set(8,15,6);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.width = 512;
+keyLight.shadow.mapSize.height = 512;
+keyLight.shadow.camera.near = 0.5;
+keyLight.shadow.camera.far = 40;
+keyLight.shadow.camera.left = -20;
+keyLight.shadow.camera.right = 20;
+keyLight.shadow.camera.top = 20;
+keyLight.shadow.camera.bottom = -20;
+scene.add(keyLight);
+const fill = new THREE.DirectionalLight(0x224422,0.6);
+fill.position.set(-5,4,-3);
+scene.add(fill);
+const rim = new THREE.PointLight(0x00FF41,1.2,25);
+rim.position.set(0,4,-12);
+scene.add(rim);
 
-// Функция генерации чанка (размер 20x20) с центром в (cx, cz)
-function generateChunk(cx, cz) {
-  const chunkSize = 20;
-  const step = 0.3;
-  const half = chunkSize/2;
-  // Создаём группу для чанка
-  const chunkGroup = new THREE.Group();
-  chunkGroup.position.set(cx, 0, cz);
+// ─── ПОЛ ──────────────────────────────────────────────────
+const groundMat = new THREE.MeshStandardMaterial({ color: 0x0a1a0a, roughness: 0.9 });
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(600,600), groundMat);
+ground.rotation.x = -Math.PI/2;
+ground.position.y = -0.05;
+ground.receiveShadow = true;
+scene.add(ground);
 
-  // Материалы
-  const groundMat = new THREE.MeshStandardMaterial({ color:0x0a1a0a, roughness:0.9, metalness:0.0 });
-  const treeMat = new THREE.MeshStandardMaterial({ color:0x2a5a2a, roughness:0.7 });
-  const fenceMat = new THREE.MeshStandardMaterial({ color:0x1a2a1a, roughness:0.8 });
-  const mushroomMat = new THREE.MeshStandardMaterial({ color:0x00ff41, emissive:0x00ff41, emissiveIntensity:0.3 });
+// ─── ФУНКЦИИ СОЗДАНИЯ ОБЪЕКТОВ ──────────────────────────
+function createTree(x,z) {
+  const g = new THREE.Group();
+  const trunkMat = new THREE.MeshStandardMaterial({ color: 0x2a1a0a, roughness: 0.9 });
+  const trunkHeight = 0.8 + Math.random() * 1.8;
+  const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.14, trunkHeight, 5), trunkMat);
+  trunk.position.y = trunkHeight/2;
+  trunk.castShadow = true;
+  g.add(trunk);
 
-  // Генерируем карту высот
-  const heightMap = [];
-  for (let x = -half; x <= half; x += step) {
-    for (let z = -half; z <= half; z += step) {
-      const wx = cx + x, wz = cz + z;
-      let h = perlin.noise(wx * 0.08, wz * 0.08, 0) * 0.8;
-      // Второй слой для создания островов (перепады)
-      h += perlin.noise(wx * 0.15, wz * 0.15, 1) * 0.3;
-      // Порог для суши: h > -0.1
-      const isLand = h > -0.1;
-      heightMap.push({x, z, h, isLand});
-    }
-  }
-
-  // Рисуем землю (просто большой плоский прямоугольник с текстурой? — используем сетку примитивов)
-  // Для упрощения используем один меш земли на чанк, но он не будет учитывать перепады.
-  // Чтобы сэкономить, просто создадим плоскость с подложкой травы.
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(chunkSize, chunkSize), groundMat);
-  ground.rotation.x = -Math.PI/2;
-  ground.position.set(0, -0.05, 0);
-  ground.receiveShadow = true;
-  chunkGroup.add(ground);
-
-  // Добавляем острова как отдельные плитки (повышенные участки)
-  // Для простоты используем кубы с разной высотой
-  const tileSize = 1.2;
-  for (let x = -half; x <= half; x += tileSize) {
-    for (let z = -half; z <= half; z += tileSize) {
-      const wx = cx + x, wz = cz + z;
-      const h = perlin.noise(wx * 0.08, wz * 0.08, 0) * 0.8 + perlin.noise(wx * 0.15, wz * 0.15, 1) * 0.3;
-      if (h > -0.05) {
-        const height = Math.max(0.1, h * 0.8 + 0.2);
-        const tile = new THREE.Mesh(
-          new THREE.BoxGeometry(tileSize*0.9, height, tileSize*0.9),
-          new THREE.MeshStandardMaterial({ color: 0x1a3a1a, roughness:0.8 })
-        );
-        tile.position.set(x, height/2 - 0.05, z);
-        tile.castShadow = true;
-        tile.receiveShadow = true;
-        chunkGroup.add(tile);
-
-        // Размещаем деревья на островах (вероятность)
-        if (Math.random() < 0.12 && height > 0.4) {
-          const tree = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.25, 0.5 + Math.random()*0.3, 4), treeMat);
-          tree.position.set(x + (Math.random()-0.5)*0.6, height + 0.25, z + (Math.random()-0.5)*0.6);
-          tree.castShadow = true;
-          chunkGroup.add(tree);
-          worldObjects.trees.push(tree);
-        }
-        // Размещаем заборы (на границах островов) — упрощённо: просто линии из кубов
-        if (Math.random() < 0.05 && height > 0.3) {
-          const fence = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.08), fenceMat);
-          fence.position.set(x + (Math.random()-0.5)*0.8, height + 0.15, z + (Math.random()-0.5)*0.8);
-          fence.castShadow = true;
-          chunkGroup.add(fence);
-          worldObjects.fences.push(fence);
-        }
-        // Размещаем грибы (мицелий) — цель сбора
-        if (Math.random() < 0.04 && height > 0.2) {
-          const mush = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.4, 6), mushroomMat);
-          mush.position.set(x + (Math.random()-0.5)*0.5, height + 0.2, z + (Math.random()-0.5)*0.5);
-          mush.castShadow = true;
-          chunkGroup.add(mush);
-          worldObjects.mushrooms.push({ mesh: mush, collected: false });
-        }
-      }
-    }
-  }
-
-  // Добавляем врагов (крипов) — они появляются редко и будут преследовать
-  if (Math.random() < 0.03) {
-    const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3333, emissive:0xff0000, emissiveIntensity:0.2 });
-    const enemy = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.8), enemyMat);
-    const ex = (Math.random()-0.5)*chunkSize*0.8;
-    const ez = (Math.random()-0.5)*chunkSize*0.8;
-    const h = perlin.noise((cx+ex)*0.08, (cz+ez)*0.08, 0)*0.8 + perlin.noise((cx+ex)*0.15, (cz+ez)*0.15, 1)*0.3;
-    const yPos = Math.max(0.1, h*0.8+0.2) + 0.6;
-    enemy.position.set(ex, yPos, ez);
-    enemy.castShadow = true;
-    chunkGroup.add(enemy);
-    worldObjects.enemies.push(enemy);
-  }
-
-  scene.add(chunkGroup);
-  return chunkGroup;
-}
-
-// Управление чанками (простая система)
-let chunkMap = {};
-let loadedChunks = [];
-
-function getChunkKey(cx, cz) {
-  return `${Math.round(cx/20)},${Math.round(cz/20)}`;
-}
-
-function updateChunks(playerPos) {
-  const cx = Math.round(playerPos.x / 20) * 20;
-  const cz = Math.round(playerPos.z / 20) * 20;
-  const radius = 2; // кол-во чанков в радиусе
-  const needed = new Set();
-  for (let dx = -radius; dx <= radius; dx++) {
-    for (let dz = -radius; dz <= radius; dz++) {
-      const key = getChunkKey(cx + dx*20, cz + dz*20);
-      needed.add(key);
-      if (!chunkMap[key]) {
-        const group = generateChunk(cx + dx*20, cz + dz*20);
-        chunkMap[key] = group;
-        loadedChunks.push(group);
-      }
-    }
-  }
-  // Удаляем чанки, которые далеко
-  for (let i = loadedChunks.length - 1; i >= 0; i--) {
-    const group = loadedChunks[i];
-    const dist = Math.sqrt(group.position.x*group.position.x + group.position.z*group.position.z);
-    if (dist > 80) {
-      scene.remove(group);
-      loadedChunks.splice(i, 1);
-      // удаляем из chunkMap (не критично)
-    }
-  }
-}
-
-// ═══════════════════════════════════════════════════
-//  ИГРОВОЕ СОСТОЯНИЕ
-// ═══════════════════════════════════════════════════
-let playerGroup = null;
-let currentIdx = 0;
-let charGroups = {};
-
-// Игрок
-const player = {
-  x: 0, y: 0, z: 0,
-  vx: 0, vy: 0, vz: 0,
-  onGround: false,
-  speed: 4,
-  jumpPower: 5,
-  gravity: -12
-};
-
-// Управление
-let moveLeft = false, moveRight = false;
-let jumpRequested = false;
-
-// Сбор
-let mushroomsCollected = 0;
-const maxMushrooms = 5;
-let gameOver = false;
-let enemy = null; // ссылка на врага
-
-// ═══════════════════════════════════════════════════
-//  СБОРКА ПЕРСОНАЖЕЙ И ИНИЦИАЛИЗАЦИЯ
-// ═══════════════════════════════════════════════════
-CHARS.forEach(def => {
-  const G = buildCharacter(def);
-  G.visible = false;
-  scene.add(G);
-  charGroups[def.id] = G;
-});
-
-function showChar(idx) {
-  if(playerGroup) playerGroup.visible = false;
-  currentIdx = idx;
-  const def = CHARS[idx];
-  playerGroup = charGroups[def.id];
-  playerGroup.visible = true;
-  playerGroup.position.set(player.x, player.y, player.z);
-  playerGroup.rotation.set(0,0,0);
-
-  document.getElementById('char-name').textContent = def.name;
-  document.getElementById('char-lvl').textContent = `${def.lvl} · ${def.lives} · ${def.league}-ЛИГА`;
-  document.querySelectorAll('.char-btn').forEach((b,i)=>{
-    b.classList.toggle('active', i===idx);
+  const leafMat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(0.1 + Math.random()*0.12, 0.3 + Math.random()*0.3, 0.05 + Math.random()*0.12),
+    roughness: 0.8
   });
-  keyLight.color.setHex(def.glowCol);
-  rimLight.color.setHex(def.glowCol);
+  const crownSize = 0.5 + Math.random() * 0.7;
+  for (let i=0; i<5 + Math.floor(Math.random()*6); i++) {
+    const sphere = new THREE.Mesh(new THREE.SphereGeometry(crownSize * (0.4 + Math.random()*0.6), 5, 5), leafMat);
+    sphere.position.set(
+      (Math.random()-0.5) * crownSize * 0.9,
+      trunkHeight * 0.6 + Math.random() * trunkHeight * 0.5,
+      (Math.random()-0.5) * crownSize * 0.9
+    );
+    sphere.castShadow = true;
+    g.add(sphere);
+  }
+  g.position.set(x, 0, z);
+  return g;
 }
 
-// UI
-const ui = document.getElementById('ui');
-const leagueColors = { 'SOULS':'#00FF41', 'PUBG':'#FFAA00', 'ТАНКИ':'#FF4444', 'FREE':'#44FF44', 'FREEMAN':'#FF8800' };
-CHARS.forEach((def,i) => {
-  const col = leagueColors[def.league]||'#00FF41';
-  const btn = document.createElement('div');
-  btn.className = 'char-btn';
-  btn.style.setProperty('--col', col);
-  btn.innerHTML = `
-    <div class="btn-dot" style="background:${col};box-shadow:0 0 6px ${col};"></div>
-    <div class="btn-name">${def.id==='you'?'ВЫ':def.id.split('_')[0].toUpperCase()}</div>
-    <div class="btn-class">${def.league}</div>
-  `;
-  btn.addEventListener('click', (e)=>{ e.preventDefault(); if(!gameOver) showChar(i); });
-  btn.addEventListener('touchend', (e)=>{ e.preventDefault(); if(!gameOver) showChar(i); });
-  ui.appendChild(btn);
-});
-showChar(0);
+function createMushroom(x,z) {
+  const g = new THREE.Group();
+  const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.07,0.28,5), new THREE.MeshStandardMaterial({color:0xddddcc,roughness:0.8}));
+  stem.position.y=0.14; stem.castShadow=true; g.add(stem);
+  const cap = new THREE.Mesh(new THREE.SphereGeometry(0.16,6,5), new THREE.MeshStandardMaterial({color:0xcc3333,emissive:0x551111,emissiveIntensity:0.15,roughness:0.6}));
+  cap.position.y=0.32; cap.scale.y=0.4; cap.castShadow=true; g.add(cap);
+  const glow = new THREE.Mesh(new THREE.SphereGeometry(0.25,6,6), new THREE.MeshBasicMaterial({color:0x00ff41,transparent:true,opacity:0.07}));
+  glow.position.y=0.22; g.add(glow);
+  g.position.set(x, 0, z);
+  g.userData = { slogan: SLOGANS[Math.floor(Math.random()*SLOGANS.length)] };
+  return g;
+}
 
-// ═══════════════════════════════════════════════════
-//  УПРАВЛЕНИЕ (свайпы + тап для прыжка)
-// ═══════════════════════════════════════════════════
-let touchStartX = 0, touchStartY = 0;
+function createEnemy(x,z) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({color:0xff3333,emissive:0x661111,emissiveIntensity:0.15,roughness:0.5});
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.7,0.5), mat);
+  body.position.y=0.35; body.castShadow=true; g.add(body);
+  const head = new THREE.Mesh(new THREE.BoxGeometry(0.4,0.3,0.4), mat);
+  head.position.y=0.85; head.castShadow=true; g.add(head);
+  const eyeMat = new THREE.MeshBasicMaterial({color:0xff0000});
+  const e1 = new THREE.Mesh(new THREE.SphereGeometry(0.05,4,4), eyeMat);
+  e1.position.set(-0.1,0.88,0.2); g.add(e1);
+  const e2 = new THREE.Mesh(new THREE.SphereGeometry(0.05,4,4), eyeMat);
+  e2.position.set(0.1,0.88,0.2); g.add(e2);
+  g.position.set(x, 0, z);
+  g.userData = { speed: 3.47*0.867, slogan: SLOGANS[Math.floor(Math.random()*SLOGANS.length)] };
+  return g;
+}
+
+function createObstacle(x,z) {
+  const g = new THREE.Group();
+  const mat = new THREE.MeshStandardMaterial({color:0x2a1a0a,roughness:0.9});
+  const log = new THREE.Mesh(new THREE.CylinderGeometry(0.15,0.22,0.9 + Math.random()*0.6, 5), mat);
+  log.rotation.z = Math.PI/2 + (Math.random()-0.5)*0.3;
+  log.rotation.x = (Math.random()-0.5)*0.3;
+  log.position.y = 0.1;
+  log.castShadow = true;
+  g.add(log);
+  g.position.set(x, 0, z);
+  return g;
+}
+
+function createPortal(x,z,ry) {
+  const grp = new THREE.Group();
+  const matFrame = new THREE.MeshStandardMaterial({ color:0x112211, roughness:0.6, metalness:0.3 });
+  const post1 = new THREE.Mesh(new THREE.BoxGeometry(0.4,5,0.4), matFrame);
+  post1.position.set(-1.5,2.5,0);
+  const post2 = new THREE.Mesh(new THREE.BoxGeometry(0.4,5,0.4), matFrame);
+  post2.position.set(1.5,2.5,0);
+  const top = new THREE.Mesh(new THREE.BoxGeometry(3.8,0.4,0.4), matFrame);
+  top.position.set(0,5.2,0);
+  grp.add(post1,post2,top);
+  const glowFrame = new THREE.Mesh(
+    new THREE.BoxGeometry(3.4,4.8,0.05),
+    new THREE.MeshStandardMaterial({ color:0x2255FF, emissive:0x2255FF, emissiveIntensity:0.8, transparent:true, opacity:0.25 })
+  );
+  glowFrame.position.set(0,2.9,0);
+  grp.add(glowFrame);
+  const portalMat = new THREE.MeshStandardMaterial({
+    color:0x0033AA, emissive:0x1133CC, emissiveIntensity:1.5,
+    transparent:true, opacity:0.7, side:THREE.DoubleSide
+  });
+  const portal = new THREE.Mesh(new THREE.PlaneGeometry(2.8,4.5), portalMat);
+  portal.position.set(0,2.7,0.05);
+  grp.add(portal);
+  for (let i=0;i<3;i++) {
+    const line = new THREE.Mesh(
+      new THREE.BoxGeometry(2.6,0.03,0.06),
+      new THREE.MeshStandardMaterial({ color:0x4488FF, emissive:0x4488FF, emissiveIntensity:2.5 })
+    );
+    line.position.set(0,1.2+i*1.1,0.1);
+    grp.add(line);
+  }
+  grp.position.set(x,0,z);
+  grp.rotation.y = ry;
+  grp.castShadow = true;
+  scene.add(grp);
+  return grp;
+}
+
+// ─── ГЕНЕРАЦИЯ МИРА ──────────────────────────────────────
+const WORLD_RADIUS = 120;
+const VISIBILITY_RADIUS = 50;
+const MAX_MUSHROOMS = 200;
+
+let worldObjects = [];
+let portals = [];
+
+function generateWorld() {
+  for (const obj of worldObjects) scene.remove(obj.mesh);
+  for (const p of portals) scene.remove(p);
+  worldObjects = [];
+  portals = [];
+
+  // Грибы (200)
+  for (let i=0; i<MAX_MUSHROOMS; i++) {
+    const angle = Math.random()*Math.PI*2;
+    const dist = 3 + Math.random() * (WORLD_RADIUS-3);
+    const x = Math.cos(angle)*dist;
+    const z = Math.sin(angle)*dist;
+    const mesh = createMushroom(x,z);
+    scene.add(mesh);
+    worldObjects.push({ mesh, type:'mushroom', x, z, active:false, collected:false });
+  }
+
+  // Деревья (600)
+  for (let i=0; i<600; i++) {
+    const angle = Math.random()*Math.PI*2;
+    const dist = 3 + Math.random() * (WORLD_RADIUS-3);
+    const x = Math.cos(angle)*dist;
+    const z = Math.sin(angle)*dist;
+    if (Math.sqrt(x*x+z*z) < 2.5) continue;
+    const mesh = createTree(x,z);
+    scene.add(mesh);
+    worldObjects.push({ mesh, type:'tree', x, z, active:false });
+  }
+
+  // Препятствия (120)
+  for (let i=0; i<120; i++) {
+    const angle = Math.random()*Math.PI*2;
+    const dist = 3 + Math.random() * (WORLD_RADIUS-3);
+    const x = Math.cos(angle)*dist;
+    const z = Math.sin(angle)*dist;
+    const mesh = createObstacle(x,z);
+    scene.add(mesh);
+    worldObjects.push({ mesh, type:'obstacle', x, z, active:false });
+  }
+
+  // Крипы (8)
+  for (let i=0; i<8; i++) {
+    const angle = Math.random()*Math.PI*2;
+    const dist = 10 + Math.random() * (WORLD_RADIUS-10);
+    const x = Math.cos(angle)*dist;
+    const z = Math.sin(angle)*dist;
+    const mesh = createEnemy(x,z);
+    scene.add(mesh);
+    worldObjects.push({ mesh, type:'enemy', x, z, active:false, enemyData: mesh.userData });
+  }
+
+  // Портал (4)
+  const portalPositions = [
+    [15,15,0.5], [-12,22,-0.8], [20,-18,1.2], [-25,-10,0.0]
+  ];
+  for (const [px,pz,pry] of portalPositions) {
+    const p = createPortal(px,pz,pry);
+    portals.push(p);
+  }
+
+  for (const obj of worldObjects) obj.mesh.visible = false;
+}
+
+// ─── УПРАВЛЕНИЕ ВИДИМОСТЬЮ ──────────────────────────────
+function updateVisibility(px,pz) {
+  const radius = VISIBILITY_RADIUS;
+  for (const obj of worldObjects) {
+    const dx = obj.x - px, dz = obj.z - pz;
+    const dist = Math.sqrt(dx*dx + dz*dz);
+    const show = dist < radius;
+    if (show && !obj.active) { obj.mesh.visible = true; obj.active = true; }
+    else if (!show && obj.active) { obj.mesh.visible = false; obj.active = false; }
+  }
+}
+
+// ─── ИГРОК ──────────────────────────────────────────────────
+const player = {
+  x:0, y:0, z:0,
+  vy:0,
+  onGround:false,
+  speed:4.5,
+  jumpPower:7.0,
+  gravity:-14
+};
+
+// ─── УПРАВЛЕНИЕ КАМЕРОЙ ──────────────────────────────────
+let camYaw = 0;
+let camPitch = 0.5;
+const MIN_PITCH = -0.6, MAX_PITCH = 1.2;
+
+let isDragging = false, prevX=0, prevY=0;
+let autoRotateTimer = 0;
 
 canvas.addEventListener('touchstart', (e) => {
   const t = e.touches[0];
-  touchStartX = t.clientX;
-  touchStartY = t.clientY;
-  // Определяем прыжок, если тап был коротким и без движения
-}, {passive: true});
+  prevX = t.clientX; prevY = t.clientY;
+  isDragging = true;
+  const now = Date.now();
+  if (now - lastTapTime < 300) { tapCount++; if(tapCount>=2){ jumpRequested=true; tapCount=0; clearTimeout(touchTimeout); } }
+  else { tapCount=1; }
+  lastTapTime=now;
+  if(touchTimeout) clearTimeout(touchTimeout);
+  touchTimeout = setTimeout(()=>{ tapCount=0; },400);
+}, {passive:true});
 
 canvas.addEventListener('touchmove', (e) => {
   e.preventDefault();
   const t = e.touches[0];
-  const dx = t.clientX - touchStartX;
-  const dy = t.clientY - touchStartY;
-  if (Math.abs(dx) > 20) {
-    if (dx > 0) { moveRight = true; moveLeft = false; }
-    else { moveLeft = true; moveRight = false; }
-  } else {
-    moveLeft = false; moveRight = false;
+  if (isDragging) {
+    const dx = t.clientX - prevX, dy = t.clientY - prevY;
+    camYaw += dx * 0.008;
+    camPitch = Math.max(MIN_PITCH, Math.min(MAX_PITCH, camPitch - dy * 0.008));
+    prevX = t.clientX; prevY = t.clientY;
   }
-  // Если палец двигается вверх — прыжок
-  if (dy < -30) {
-    jumpRequested = true;
-  }
-}, {passive: false});
+}, {passive:false});
 
-canvas.addEventListener('touchend', (e) => {
-  moveLeft = false; moveRight = false;
-  // Если движение было небольшим, считаем прыжком
-  const t = e.changedTouches[0];
-  const dx = t.clientX - touchStartX;
-  const dy = t.clientY - touchStartY;
-  if (Math.abs(dx) < 30 && dy > -30) {
-    jumpRequested = true;
-  }
-}, {passive: true});
+canvas.addEventListener('touchend', () => { isDragging = false; }, {passive:true});
 
-// Мышь/клавиатура для ПК
+canvas.addEventListener('mousedown', (e) => { isDragging=true; prevX=e.clientX; prevY=e.clientY; });
+window.addEventListener('mouseup', () => { isDragging=false; });
+window.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  const dx = e.clientX - prevX, dy = e.clientY - prevY;
+  camYaw += dx * 0.008;
+  camPitch = Math.max(MIN_PITCH, Math.min(MAX_PITCH, camPitch - dy * 0.008));
+  prevX = e.clientX; prevY = e.clientY;
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'q' || e.key === 'Q') { camYaw -= 0.05; e.preventDefault(); }
+  if (e.key === 'e' || e.key === 'E') { camYaw += 0.05; e.preventDefault(); }
+  if (e.key === 'r' || e.key === 'R') { camPitch = Math.min(MAX_PITCH, camPitch + 0.02); e.preventDefault(); }
+  if (e.key === 'f' || e.key === 'F') { camPitch = Math.max(MIN_PITCH, camPitch - 0.02); e.preventDefault(); }
+});
+
+// ─── УПРАВЛЕНИЕ ДВИЖЕНИЕМ ──────────────────────────────
+let moveLeft = false, moveRight = false;
+let jumpRequested = false;
+let lastTapTime=0, tapCount=0, touchTimeout=null;
+
 document.addEventListener('keydown', (e) => {
   if (e.key === 'ArrowLeft' || e.key === 'a') { moveLeft = true; moveRight = false; }
   if (e.key === 'ArrowRight' || e.key === 'd') { moveRight = true; moveLeft = false; }
@@ -611,183 +543,514 @@ document.addEventListener('keyup', (e) => {
   if (e.key === 'ArrowRight' || e.key === 'd') moveRight = false;
 });
 
-// ═══════════════════════════════════════════════════
-//  ИГРОВОЙ ЦИКЛ
-// ═══════════════════════════════════════════════════
+// ─── ВОКСЕЛЬНЫЙ СТРОИТЕЛЬ ──────────────────────────────────
+function voxel(w,h,d,color,emissive=0x000000,emissInt=0) {
+  return new THREE.Mesh(new THREE.BoxGeometry(w,h,d),
+    new THREE.MeshStandardMaterial({ color, roughness:0.7, metalness:0.1, emissive, emissiveIntensity:emissInt }));
+}
+function add(grp, mesh, x, y, z) { mesh.position.set(x,y,z); mesh.castShadow=true; grp.add(mesh); return mesh; }
+
+function buildCharacter(def) {
+  const G = new THREE.Group();
+  const { skin, shirt, pants, boots, accent, glowCol,
+    headW=0.72, headH=0.72, headD=0.72,
+    bodyW=0.72, bodyH=1.0, bodyD=0.44,
+    shoulderExtra=0, armW=0.28, armH=0.9, armD=0.28,
+    legW=0.3, legH=0.9, legD=0.3,
+    hasHelmet=false, helmetCol=0x333333,
+    hasVisor=false, visorCol=0x4488FF,
+    hasHair=false, hairCol=0x111111,
+    hasBeard=false, hasBackpack=false, backpackCol=0x223322,
+    hasWeapon=false, weaponDef=null,
+    hasArmor=false, armorCol=0x334433,
+    hasCape=false, capeCol=0x220011,
+    hasHat=false, hatCol=0x111111,
+    hasMushroom=false, hasEars=false, earCol=0x553300 } = def;
+
+  const BY = legH + bodyH/2;
+  const HY = BY + bodyH/2 + headH/2;
+
+  const legL = voxel(legW,legH,legD, pants);
+  const legR = voxel(legW,legH,legD, pants);
+  G.legL = legL; G.legR = legR;
+  add(G, legL, -(legW/2+0.02), legH/2, 0);
+  add(G, legR,  (legW/2+0.02), legH/2, 0);
+  const bootL = voxel(legW+0.06,0.2,legD+0.1, boots); add(G, bootL, -(legW/2+0.02),0.1,0.05);
+  const bootR = voxel(legW+0.06,0.2,legD+0.1, boots); add(G, bootR,  (legW/2+0.02),0.1,0.05);
+
+  const body = voxel(bodyW, bodyH, bodyD, shirt); add(G, body, 0, BY, 0);
+  if(hasArmor) {
+    const sL = voxel(0.18+shoulderExtra,0.35,bodyD+0.1, armorCol, glowCol,0.1);
+    const sR = voxel(0.18+shoulderExtra,0.35,bodyD+0.1, armorCol, glowCol,0.1);
+    add(G, sL, -(bodyW/2+0.09+shoulderExtra/2), BY+0.25, 0);
+    add(G, sR,  (bodyW/2+0.09+shoulderExtra/2), BY+0.25, 0);
+  }
+  if(hasCape) { const cape = voxel(bodyW-0.1, bodyH*0.9, 0.08, capeCol); add(G, cape, 0, BY-0.05, -(bodyD/2+0.05)); }
+
+  const armL = voxel(armW,armH,armD, shirt); const armR = voxel(armW,armH,armD, shirt);
+  G.armL = armL; G.armR = armR;
+  add(G, armL, -(bodyW/2+armW/2+0.04), BY-0.05, 0);
+  add(G, armR,  (bodyW/2+armW/2+0.04), BY-0.05, 0);
+  const gloveL = voxel(armW+0.06,0.18,armD+0.06, accent); add(G, gloveL, -(bodyW/2+armW/2+0.04), BY-0.05-armH/2+0.09,0);
+  const gloveR = voxel(armW+0.06,0.18,armD+0.06, accent); add(G, gloveR,  (bodyW/2+armW/2+0.04), BY-0.05-armH/2+0.09,0);
+
+  const head = voxel(headW, headH, headD, skin); add(G, head, 0, HY, 0);
+  const eyeL = voxel(0.12,0.1,0.05,0x001100, glowCol,0.8); add(G, eyeL, -0.16, HY+0.04, headD/2+0.01);
+  const eyeR = voxel(0.12,0.1,0.05,0x001100, glowCol,0.8); add(G, eyeR,  0.16, HY+0.04, headD/2+0.01);
+  const mouth = voxel(0.22,0.07,0.04,0x001100); add(G, mouth, 0, HY-0.18, headD/2+0.01);
+
+  if(hasHair) {
+    const hair = voxel(headW+0.04,0.2,headD+0.04, hairCol); add(G, hair, 0, HY+headH/2+0.06,0);
+    const bang = voxel(headW,0.18,0.12, hairCol); add(G, bang, 0, HY+headH/2-0.02, headD/2+0.02);
+  }
+  if(hasBeard) { const beard = voxel(headW-0.1,0.22,0.1, hairCol||0x332200); add(G, beard, 0, HY-headH/2+0.02, headD/2+0.02); }
+  if(hasEars) {
+    const eL = voxel(0.1,0.28,0.12, earCol); add(G, eL, -(headW/2+0.06), HY+0.06,0);
+    const eR = voxel(0.1,0.28,0.12, earCol); add(G, eR,  (headW/2+0.06), HY+0.06,0);
+  }
+  if(hasHelmet) {
+    const helm = voxel(headW+0.1,headH*0.65,headD+0.1, helmetCol); add(G, helm,0,HY+0.05,0);
+    if(hasVisor) { const visor = voxel(headW-0.1,0.18,0.06, visorCol, visorCol,1.2); add(G, visor,0,HY+0.06,headD/2+0.08); }
+  }
+  if(hasHat) {
+    const brim = voxel(headW+0.3,0.08,headD+0.3, hatCol); add(G, brim,0,HY+headH/2+0.04,0);
+    const top2 = voxel(headW-0.1,0.45,headD-0.1, hatCol); add(G, top2,0,HY+headH/2+0.04+0.27,0);
+  }
+  if(hasBackpack) {
+    const bp = voxel(0.5,0.7,0.28, backpackCol); add(G, bp,0,BY+0.1,-(bodyD/2+0.18));
+    const bpTop = voxel(0.3,0.2,0.2, backpackCol); add(G, bpTop,0,BY+0.52,-(bodyD/2+0.18));
+  }
+  if(hasMushroom) {
+    const stem = voxel(0.14,0.25,0.14,0x88AA88); add(G, stem,0.18,HY+headH/2+0.23,0);
+    const cap = voxel(0.38,0.18,0.38, accent, accent,0.3); add(G, cap,0.18,HY+headH/2+0.42,0);
+  }
+
+  if(hasWeapon && weaponDef) {
+    const w = weaponDef; const wGrp = new THREE.Group();
+    if(w.type==='sword') {
+      const blade = voxel(0.1,0.9,0.08, w.col||0x88AAAA, w.col||0x88AAAA,0.2); wGrp.add(blade); blade.position.y=0.5;
+      const guard = voxel(0.3,0.08,0.1, accent); wGrp.add(guard);
+      const hilt  = voxel(0.09,0.3,0.09, accent); wGrp.add(hilt); hilt.position.y=-0.18;
+      wGrp.position.set(bodyW/2+armW+0.18, BY+0.1, 0.1); wGrp.rotation.z=-0.15;
+    }
+    if(w.type==='rifle') {
+      const stock  = voxel(0.12,0.14,0.7, w.col||0x223322); wGrp.add(stock);
+      const barrel = voxel(0.08,0.08,0.5,0x334433); wGrp.add(barrel); barrel.position.set(0,0.1,0.2);
+      const grip   = voxel(0.1,0.3,0.12, w.col||0x223322); wGrp.add(grip); grip.position.set(0,-0.16,-0.1);
+      wGrp.position.set(bodyW/2+armW+0.1, BY+0.05, -0.1); wGrp.rotation.y=Math.PI/2;
+    }
+    if(w.type==='staff') {
+      const staff = voxel(0.08,1.5,0.08, w.col||0x442200); wGrp.add(staff); staff.position.y=0.4;
+      const orb   = voxel(0.26,0.26,0.26, accent, accent,1.0); wGrp.add(orb); orb.position.y=1.2;
+      wGrp.position.set(bodyW/2+armW+0.14, BY-0.25, 0);
+    }
+    if(w.type==='crowbar') {
+      const bar = voxel(0.08,0.85,0.08, w.col||0x445544); wGrp.add(bar); bar.position.y=0.3;
+      const tip = voxel(0.22,0.08,0.08, w.col||0x445544); wGrp.add(tip); tip.position.y=0.78;
+      wGrp.position.set(bodyW/2+armW+0.12, BY+0.1, 0.1); wGrp.rotation.z=0.3;
+    }
+    if(w.type==='cannon') {
+      const barrel = voxel(0.3,0.3,0.8, w.col||0x334433); wGrp.add(barrel); barrel.position.z=0.1;
+      const base   = voxel(0.44,0.2,0.44,0x223322); wGrp.add(base);
+      wGrp.position.set(bodyW/2+armW+0.12, BY+0.1, -0.2);
+    }
+    G.add(wGrp);
+  }
+
+  const badge = voxel(0.22,0.16,0.06, accent, accent,0.8);
+  add(G, badge, 0, BY+0.15, bodyD/2+0.02);
+  G.scale.setScalar(0.75);
+  G._def = def;
+  return G;
+}
+
+// ─── ПЕРСОНАЖИ ──────────────────────────────────────────────
+const CHARS = [
+  { id:'you', name:'ВЫ — НОЧНОЙ ОХОТНИК', league:'SOULS', lvl:'LVL 7', lives:'12.5♥',
+    skin:0x3A5A3A, shirt:0x1A3A1A, pants:0x0F2A0F, boots:0x0A1A0A,
+    accent:0x00FF41, glowCol:0x00FF41,
+    hasHair:true, hairCol:0x002200,
+    hasArmor:true, armorCol:0x1A3A1A, shoulderExtra:0.06,
+    hasCape:true, capeCol:0x001100,
+    hasWeapon:true, weaponDef:{type:'sword', col:0x00FF41},
+    bodyW:0.76 },
+  { id:'pubg', name:'ARKADY_V — ДЕСАНТНИК', league:'PUBG', lvl:'LVL 12', lives:'34.1♥',
+    skin:0x8B7355, shirt:0x3A4A2A, pants:0x2A3A1A, boots:0x1A2A0A,
+    accent:0xFFAA00, glowCol:0xFFCC44,
+    hasHelmet:true, helmetCol:0x2A3A1A,
+    hasArmor:true, armorCol:0x3A4A2A, shoulderExtra:0.04,
+    hasBackpack:true, backpackCol:0x2A3020,
+    hasWeapon:true, weaponDef:{type:'rifle', col:0x3A4A2A},
+    bodyW:0.80, bodyH:1.05 },
+  { id:'tank', name:'TANK_PILOT — КОМАНДИР', league:'ТАНКИ', lvl:'LVL 5', lives:'8.9♥',
+    skin:0x6A5A4A, shirt:0x2A2A3A, pants:0x1A1A2A, boots:0x111120,
+    accent:0xFF4444, glowCol:0xFF2222,
+    hasHelmet:true, helmetCol:0x2A2A3A,
+    hasVisor:true, visorCol:0xFF4444,
+    hasArmor:true, armorCol:0x2A2A4A, shoulderExtra:0.14,
+    hasWeapon:true, weaponDef:{type:'cannon', col:0x2A2A3A},
+    bodyW:0.92, bodyH:1.1, armW:0.36 },
+  { id:'souls', name:'NIGHTFOX — ВЕДЬМАК', league:'SOULS', lvl:'LVL 19', lives:'91.0♥',
+    skin:0x4A3A2A, shirt:0x1A0A1A, pants:0x120812, boots:0x0A060A,
+    accent:0xAA44FF, glowCol:0xCC66FF,
+    hasHair:true, hairCol:0x110022,
+    hasBeard:true,
+    hasCape:true, capeCol:0x1A0022,
+    hasHat:true, hatCol:0x0A0015,
+    hasWeapon:true, weaponDef:{type:'staff', col:0x2A1A0A},
+    bodyH:1.05 },
+  { id:'free', name:'GHOST_88 — ВОЛЬНЫЙ', league:'FREE', lvl:'LVL 3', lives:'3.2♥',
+    skin:0x7AAA7A, shirt:0x2A6A2A, pants:0x1A4A1A, boots:0x0F2A0F,
+    accent:0x44FF44, glowCol:0x00FF41,
+    hasHair:true, hairCol:0x115511,
+    hasMushroom:true,
+    bodyW:0.66, bodyH:0.92, headW:0.78, headH:0.78 },
+  { id:'freeman', name:'FREEMAN — УЧЁНЫЙ', league:'FREEMAN', lvl:'LVL 8', lives:'22.0♥',
+    skin:0x8A7060, shirt:0x3A3A3A, pants:0x2A2A2A, boots:0x1A1A1A,
+    accent:0xFF8800, glowCol:0xFF6600,
+    hasHair:true, hairCol:0x1A0A00,
+    hasBeard:true,
+    hasArmor:true, armorCol:0xFF6600, shoulderExtra:0.08,
+    hasWeapon:true, weaponDef:{type:'crowbar', col:0x445544},
+    bodyW:0.74 }
+];
+
+let currentCharIdx = 0;
+let playerGroup = null;
+let charGroups = {};
+
+CHARS.forEach(def => {
+  const G = buildCharacter(def);
+  G.visible = false;
+  scene.add(G);
+  charGroups[def.id] = G;
+});
+
+function showChar(idx) {
+  if(playerGroup) playerGroup.visible = false;
+  currentCharIdx = idx;
+  const def = CHARS[idx];
+  playerGroup = charGroups[def.id];
+  playerGroup.visible = true;
+  playerGroup.position.set(player.x, player.y, player.z);
+  document.getElementById('char-name').textContent = def.name;
+  document.getElementById('char-lvl').textContent = `${def.lvl} · ${def.lives} · ${def.league}`;
+  const col = def.glowCol;
+  keyLight.color.setHex(col);
+  rim.color.setHex(col);
+}
+showChar(0);
+
+// ─── ПОКАЗ СЛОГАНА ──────────────────────────────────────
+let sloganTimeout = null;
+const sloganPopup = document.getElementById('slogan-popup');
+const sloganText = document.getElementById('slogan-text');
+const sloganAuthor = document.getElementById('slogan-author');
+
+function showSlogan(slogan, duration=3000) {
+  if (sloganTimeout) clearTimeout(sloganTimeout);
+  sloganText.textContent = slogan.text;
+  sloganAuthor.textContent = `— ${slogan.author}`;
+  sloganPopup.classList.add('show');
+  sloganTimeout = setTimeout(() => sloganPopup.classList.remove('show'), duration);
+}
+
+// ─── ЦИКЛ ДНЯ/НОЧИ И ПОГОДА ──────────────────────────────
+let dayTime = 0.5; // 0=ночь, 1=день
+let daySpeed = 0.002; // изменение за кадр
+let weatherState = 'sunny'; // sunny, rainy, windy
+
+function updateDayNight(dt) {
+  dayTime += dt * daySpeed;
+  if (dayTime > 1) dayTime -= 1;
+  // Определяем время суток
+  const isDay = dayTime > 0.2 && dayTime < 0.8;
+  const intensity = isDay ? 1.0 : 0.4 + Math.sin(dayTime * Math.PI * 2) * 0.3;
+  // Меняем цвет освещения
+  const col = new THREE.Color(0x00FF41).lerp(new THREE.Color(0x2255AA), 1 - intensity);
+  keyLight.color.set(col);
+  keyLight.intensity = 1.2 + intensity * 0.8;
+  ambient.intensity = 0.4 + intensity * 0.8;
+  // Меняем цвет неба (фон)
+  const bg = new THREE.Color(0x05070a).lerp(new THREE.Color(0x0a1a0a), intensity * 0.5);
+  renderer.setClearColor(bg);
+  // Обновляем индикатор
+  const icon = document.getElementById('weatherIcon');
+  const label = document.getElementById('timeLabel');
+  if (isDay) {
+    icon.textContent = '☀';
+    label.textContent = 'ДЕНЬ';
+  } else {
+    icon.textContent = '🌙';
+    label.textContent = 'НОЧЬ';
+  }
+  // Случайная смена погоды (редко)
+  if (Math.random() < 0.0002) {
+    const states = ['sunny', 'rainy', 'windy'];
+    weatherState = states[Math.floor(Math.random() * states.length)];
+    if (weatherState === 'rainy') icon.textContent = '🌧';
+    else if (weatherState === 'windy') icon.textContent = '💨';
+  }
+}
+
+// ─── ИГРОВОЙ ЦИКЛ ──────────────────────────────────────
+let mushroomsCollected = 0;
+let gameOver = false;
+let lastEnemySloganTime = 0;
 const clock = new THREE.Clock();
 
 function update(dt) {
   if (gameOver) return;
 
-  // Управление
-  let accel = 0;
-  if (moveLeft) accel = -1;
-  if (moveRight) accel = 1;
-  player.vx += accel * 6 * dt;
-  player.vx *= 0.9; // трение
-  if (Math.abs(player.vx) > 4) player.vx = Math.sign(player.vx) * 4;
-  player.x += player.vx * dt;
+  // День/ночь
+  updateDayNight(dt);
 
-  // Гравитация
+  // Направление движения (вперёд по камере)
+  const forward = new THREE.Vector3(-Math.sin(camYaw), 0, -Math.cos(camYaw));
+  forward.normalize();
+  const right = new THREE.Vector3(Math.cos(camYaw), 0, -Math.sin(camYaw));
+  right.normalize();
+
+  let moveX = 0, moveZ = 0;
+  moveX += forward.x * player.speed;
+  moveZ += forward.z * player.speed;
+  if (moveLeft) { moveX += right.x * 3.5; moveZ += right.z * 3.5; }
+  if (moveRight) { moveX -= right.x * 3.5; moveZ -= right.z * 3.5; }
+
+  player.x += moveX * dt;
+  player.z += moveZ * dt;
+
+  // Гравитация и прыжок
   player.vy += player.gravity * dt;
   player.y += player.vy * dt;
-
-  // Прыжок
   if (jumpRequested && player.onGround) {
     player.vy = player.jumpPower;
     player.onGround = false;
   }
   jumpRequested = false;
+  if (player.y < 0) { player.y=0; player.vy=0; player.onGround=true; }
 
-  // Проверка земли (коллизия с островами — упрощённо, считаем что земля на y=0)
-  // Здесь нужно проверять высоту ландшафта, но для простоты используем плоскую поверхность с небольшими возвышениями.
-  // Вместо сложной физики просто ограничим y>=0.
-  if (player.y < 0) {
-    player.y = 0;
-    player.vy = 0;
-    player.onGround = true;
-  }
+  // Видимость
+  updateVisibility(player.x, player.z);
 
-  // Автоматическое движение вперёд (по оси Z) — как в раннере
-  player.z += 4 * dt;
-
-  // Ограничение по X (чтобы не уйти далеко)
-  if (player.x > 8) player.x = 8;
-  if (player.x < -8) player.x = -8;
-
-  // Обновление чанков
-  updateChunks(player);
-
-  // Проверка сбора грибов
-  for (let i = worldObjects.mushrooms.length - 1; i >= 0; i--) {
-    const m = worldObjects.mushrooms[i];
-    if (m.collected) continue;
-    const dx = player.x - (m.mesh.position.x + m.mesh.parent.position.x); // parent это chunkGroup
-    const dz = player.z - (m.mesh.position.z + m.mesh.parent.position.z);
-    if (Math.sqrt(dx*dx + dz*dz) < 1.2) {
-      m.collected = true;
-      scene.remove(m.mesh); // удаляем из группы? проще скрыть
-      m.mesh.visible = false;
+  // Сбор грибов
+  for (const obj of worldObjects) {
+    if (obj.type !== 'mushroom' || obj.collected) continue;
+    if (!obj.active) continue;
+    const dx = player.x - obj.x, dz = player.z - obj.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 0.8) {
+      obj.collected = true;
+      obj.mesh.visible = false;
+      obj.active = false;
       mushroomsCollected++;
-      document.getElementById('cassette-hud').textContent = `🍄 ${mushroomsCollected}/${maxMushrooms}`;
-      if (mushroomsCollected >= maxMushrooms) {
-        gameOver = true;
-        showOverlay(true);
-      }
+      document.getElementById('mush-count').textContent = mushroomsCollected;
+      document.getElementById('cassette-hud').textContent = `🍄 ${mushroomsCollected}/200`;
+      if (obj.mesh.userData && obj.mesh.userData.slogan) showSlogan(obj.mesh.userData.slogan, 2500);
+      if (mushroomsCollected >= 200) { gameOver = true; showOverlay(true); }
     }
   }
 
-  // Враг (преследователь) — двигается к игроку
-  if (worldObjects.enemies.length > 0) {
-    const enemy = worldObjects.enemies[0];
-    const dx = player.x - (enemy.position.x + enemy.parent.position.x);
-    const dz = player.z - (enemy.position.z + enemy.parent.position.z);
+  // Движение врагов
+  const now = performance.now();
+  for (const obj of worldObjects) {
+    if (obj.type !== 'enemy' || !obj.active) continue;
+    const dx = player.x - obj.x, dz = player.z - obj.z;
     const dist = Math.sqrt(dx*dx + dz*dz);
-    if (dist > 1.5) {
-      const speed = 1.2;
-      enemy.position.x += (dx / dist) * speed * dt;
-      enemy.position.z += (dz / dist) * speed * dt;
+    if (dist > 1.5 && dist < 30) {
+      const speed = obj.enemyData.speed || 3.47*0.867;
+      obj.x += (dx/dist) * speed * dt;
+      obj.z += (dz/dist) * speed * dt;
+      obj.mesh.position.x = obj.x;
+      obj.mesh.position.z = obj.z;
     }
-    // Проверка столкновения с игроком
-    if (dist < 1.0) {
-      gameOver = true;
-      showOverlay(false);
+    if (dist < 3 && now - lastEnemySloganTime > 8000 && obj.enemyData && obj.enemyData.slogan) {
+      lastEnemySloganTime = now;
+      showSlogan(obj.enemyData.slogan, 3000);
+    }
+    if (dist < 0.7) { gameOver = true; showOverlay(false); }
+  }
+
+  // Препятствия
+  for (const obj of worldObjects) {
+    if (obj.type !== 'obstacle' || !obj.active) continue;
+    const dx = player.x - obj.x, dz = player.z - obj.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 0.7) {
+      const angle = Math.atan2(dx, dz);
+      player.x += Math.sin(angle) * 0.3;
+      player.z += Math.cos(angle) * 0.3;
+      if (!player.onGround) player.vy = 2;
     }
   }
 
-  // Обновление позиции игрока
+  // Портал
+  for (const p of portals) {
+    const dx = player.x - p.position.x, dz = player.z - p.position.z;
+    if (Math.sqrt(dx*dx + dz*dz) < 2.5) {
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 10 + Math.random() * 30;
+      player.x = Math.cos(angle) * dist;
+      player.z = Math.sin(angle) * dist;
+      player.y = 0;
+      showSlogan({ text: '🌀 ТЕЛЕПОРТАЦИЯ В НОВУЮ ЗОНУ', author: 'Портал' }, 2000);
+      updateVisibility(player.x, player.z);
+    }
+  }
+
+  // Обновление персонажа (поворот по движению, без лишнего PI)
   if (playerGroup) {
     playerGroup.position.set(player.x, player.y, player.z);
-    playerGroup.rotation.z = -player.vx * 0.05;
+    const moveDir = new THREE.Vector3(moveX, 0, moveZ);
+    if (moveDir.length() > 0.1) {
+      let angle = Math.atan2(moveDir.x, moveDir.z);
+      // НЕ добавляем PI — персонаж смотрит в направлении движения
+      playerGroup.rotation.y = angle;
+    }
     // Анимация бега
-    const runCycle = Math.sin(performance.now() / 150);
-    playerGroup.legLGroup.rotation.x = runCycle * 0.4;
-    playerGroup.legRGroup.rotation.x = -runCycle * 0.4;
-    playerGroup.armLGroup.rotation.x = -runCycle * 0.4;
-    playerGroup.armRGroup.rotation.x = runCycle * 0.4;
-    if (!player.onGround) {
-      // анимация прыжка
-      playerGroup.legLGroup.rotation.x = -0.3;
-      playerGroup.legRGroup.rotation.x = -0.3;
-    }
-    // Подсветка под ногами
-    playerGroup.circleMat.opacity = 0.2 + Math.sin(performance.now()/300)*0.1;
-  }
-
-  // Камера следует за игроком
-  camera.position.x += (player.x - camera.position.x) * 2 * dt;
-  camera.position.z += (player.z - 8 - camera.position.z) * 2 * dt;
-  camera.lookAt(player.x, player.y+1, player.z-4);
-
-  // Частицы двигаются
-  const pos = particles.geometry.attributes.position;
-  for (let i=0; i<pCount; i++) {
-    pos.array[i*3+2] += 2 * dt;
-    if (pos.array[i*3+2] > 10) {
-      pos.array[i*3+2] = -50;
-      pos.array[i*3] = (Math.random()-0.5)*40;
-      pos.array[i*3+1] = Math.random()*6 + 1;
+    if (playerGroup.legL && playerGroup.legR) {
+      const runCycle = Math.sin(performance.now()/150);
+      playerGroup.legL.rotation.x = runCycle * 0.3;
+      playerGroup.legR.rotation.x = -runCycle * 0.3;
     }
   }
-  pos.needsUpdate = true;
+
+  // Автовращение камеры
+  if (!isDragging) {
+    autoRotateTimer += dt;
+    if (autoRotateTimer > 2.0) camYaw += 0.001 * dt * 60;
+  } else {
+    autoRotateTimer = 0;
+  }
+
+  // Позиция камеры (сзади-сверху)
+  const radius = 8;
+  const heightOffset = 4.5;
+  const pitch = camPitch;
+  const yaw = camYaw;
+  const camX = player.x - Math.sin(yaw) * radius * Math.cos(pitch);
+  const camY = player.y + heightOffset + Math.sin(pitch) * radius * 0.6;
+  const camZ = player.z - Math.cos(yaw) * radius * Math.cos(pitch);
+  camera.position.lerp(new THREE.Vector3(camX, camY, camZ), 0.08);
+  camera.lookAt(player.x, player.y+1.2, player.z);
 }
 
 function showOverlay(isWin) {
   const overlay = document.getElementById('game-overlay');
-  const title = document.getElementById('overlay-header');
-  const desc = document.getElementById('overlay-desc');
+  const title = document.getElementById('overlayTitle');
+  const slogan = document.getElementById('overlaySlogan');
+  const desc = document.getElementById('overlayDesc');
   if (isWin) {
-    title.textContent = "СИНХРОНИЗАЦИЯ СЕТИ";
-    desc.textContent = `Архитектура распределенного Мицелия развернута успешно! Грибы собраны. Персонаж Лиги ${playerGroup._def.league} подключен к ядру OMNIVERSE.`;
+    title.textContent = "СВОБОДНЫЙ УЗЕЛ АКТИВИРОВАН";
+    slogan.textContent = '"Твой личный цифровой архив без ограничений"';
+    desc.textContent = `Вы собрали 200 грибов Мицелия. Сеть Telegram теперь защищена.`;
   } else {
     title.textContent = "ПОТЕРЯ СИГНАЛА";
-    desc.textContent = "Вас настиг крип. Попробуйте снова, уклоняйтесь и собирайте грибы.";
+    const randomSlogan = SLOGANS[Math.floor(Math.random() * SLOGANS.length)];
+    slogan.textContent = `"${randomSlogan.text}"`;
+    desc.textContent = "Вас настиг крип. Попробуйте снова.";
   }
   overlay.style.display = 'flex';
 }
 
 function resetGame() {
   document.getElementById('game-overlay').style.display = 'none';
-  // Сброс состояния
-  player.x = 0; player.y = 0; player.z = 0;
-  player.vx = 0; player.vy = 0;
-  player.onGround = false;
-  mushroomsCollected = 0;
-  document.getElementById('cassette-hud').textContent = `🍄 0/${maxMushrooms}`;
-  gameOver = false;
-  // Очистка мира
-  for (let key in chunkMap) {
-    scene.remove(chunkMap[key]);
-  }
-  chunkMap = {};
-  loadedChunks = [];
-  worldObjects = { trees: [], fences: [], mushrooms: [], enemies: [] };
-  // Генерация начального чанка
-  updateChunks(player);
+  player.x=0; player.y=0; player.z=0;
+  player.vy=0; player.onGround=false;
+  mushroomsCollected=0;
+  document.getElementById('mush-count').textContent='0';
+  document.getElementById('cassette-hud').textContent='🍄 0/200';
+  gameOver=false;
+  camYaw=0; camPitch=0.5;
+  generateWorld();
+  updateVisibility(player.x, player.z);
 }
 
-// ═══════════════════════════════════════════════════
-//  ЗАПУСК
-// ═══════════════════════════════════════════════════
-// Генерируем начальный мир
-updateChunks(player);
+// ─── СТАРТОВЫЙ ЭКРАН (терминал) ──────────────────────────
+function initIntro() {
+  const logs = [
+    { text: "[ INFO ] Инициализация протокола OMNIVERSE...", cls: '' },
+    { text: "[ OK ] Telegram WebApp успешно внедрён.", cls: 'ok' },
+    { text: "[ WARN ] Локальный кластер не отвечает.", cls: 'warn' },
+    { text: "[ INFO ] Переключение на статическое зеркало...", cls: '' },
+    { text: "[ OK ] Синхронизация игровых механик выполнена.", cls: 'ok' },
+    { text: "[ STATUS ] Режим ожидания. Нажмите кнопку для входа.", cls: '' }
+  ];
+  const container = document.getElementById('introLogs');
+  logs.forEach((log, i) => {
+    setTimeout(() => {
+      const line = document.createElement('div');
+      line.className = 'log-line';
+      if (log.cls) line.innerHTML = `<span class="${log.cls}">${log.text}</span>`;
+      else line.textContent = log.text;
+      container.appendChild(line);
+    }, i * 600 + 200);
+  });
+}
+initIntro();
 
-// Анимационный цикл
-function animate() {
+document.getElementById('enterGameBtn').addEventListener('click', () => {
+  document.getElementById('introScreen').classList.add('hidden');
+  // Запускаем игру, если ещё не запущена
+  if (!window._gameStarted) {
+    window._gameStarted = true;
+    generateWorld();
+    updateVisibility(player.x, player.z);
+    // Начинаем анимацию
+    animate(0);
+  }
+});
+
+// ─── ЗАПУСК ──────────────────────────────────────────────
+function resize() {
+  const w = innerWidth, h = innerHeight - 48 - 64;
+  camera.aspect = w/h;
+  camera.updateProjectionMatrix();
+  renderer.setSize(w,h);
+}
+window.addEventListener('resize', resize);
+resize();
+
+// UI кнопки выбора лиг
+const ui = document.getElementById('ui');
+const leagueColors = { 'SOULS':'#00FF41', 'PUBG':'#FFAA00', 'ТАНКИ':'#FF4444', 'FREE':'#44FF44', 'FREEMAN':'#FF8800' };
+CHARS.forEach((def, i) => {
+  const col = leagueColors[def.league]||'#00FF41';
+  const btn = document.createElement('div');
+  btn.className = 'char-btn' + (i===0 ? ' active' : '');
+  btn.style.setProperty('--col', col);
+  btn.innerHTML = `<div class="btn-dot" style="background:${col};box-shadow:0 0 6px ${col};"></div>
+    <div class="btn-name">${def.id==='you'?'ВЫ':def.id.split('_')[0].toUpperCase()}</div>
+    <div class="btn-class">${def.league}</div>`;
+  btn.addEventListener('click', () => { if(!gameOver) showChar(i); });
+  btn.addEventListener('touchend', (e) => { e.preventDefault(); if(!gameOver) showChar(i); });
+  ui.appendChild(btn);
+});
+
+// Кнопка рестарта (фиксация суверенитета)
+document.getElementById('restartBtn').addEventListener('click', () => {
+  // Закрываем Mini App через Telegram API
+  if (window.Telegram && window.Telegram.WebApp) {
+    window.Telegram.WebApp.close();
+  } else {
+    // fallback
+    alert('Суверенитет зафиксирован!');
+    resetGame();
+  }
+});
+
+// ─── АНИМАЦИЯ ──────────────────────────────────────────────
+function animate(time) {
+  if (!window._gameStarted) return;
   requestAnimationFrame(animate);
-  const dt = Math.min(clock.getDelta(), 0.05);
+  const dt = Math.min((time - (clock.elapsedTime||time)) / 1000, 0.05);
+  clock.elapsedTime = time;
   update(dt);
   renderer.render(scene, camera);
 }
-animate();
 
-// Resize
-addEventListener('resize',()=>{
-  camera.aspect=W()/H();
-  camera.updateProjectionMatrix();
-  renderer.setSize(W(),H());
-});
-
+console.log('🌳 OMNIVERSE — ЛЕС МИЦЕЛИЯ (финал)');
+console.log('🖱 Зажмите и тащите для вращения камеры (горизонт/вертикаль)');
+console.log('🌀 Портал телепортирует в случайную точку.');
+console.log('🍄 Соберите 200 грибов для победы.');
 </script>
 </body>
 </html>
