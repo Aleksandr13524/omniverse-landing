@@ -1,1056 +1,793 @@
 <!DOCTYPE html>
 <html lang="ru">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>OMNIVERSE · ЭТАП 1</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap');
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>OMNIVERSE — 3D RUNNER</title>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#020802; font-family:'Courier New',monospace; overflow:hidden; height:100dvh; user-select:none; }
+canvas { display:block; }
 
-        * { box-sizing: border-box; margin: 0; padding: 0; }
+#info-panel {
+  position:fixed; top:0; left:0; right:0;
+  background:rgba(2,8,2,0.92);
+  border-bottom:1px solid #0a2a0a;
+  display:flex; align-items:center;
+  padding:10px 16px; gap:16px; height:52px; z-index:10;
+}
+.info-title { font-size:14px; color:#00FF41; letter-spacing:4px; text-shadow:0 0 12px #00FF41; }
+.info-sep { color:#0a2a0a; }
+.info-char { font-size:11px; color:#00AA2A; letter-spacing:2px; }
+.info-lvl  { font-size:10px; color:#1a4a1a; }
+.info-counter { margin-left:auto; font-size:14px; color:#00FF41; letter-spacing:2px; font-weight:bold; }
 
-        body {
-            background: #05070a;
-            color: #00f0ff;
-            font-family: 'Share Tech Mono', 'Courier New', monospace;
-            overflow: hidden;
-            user-select: none;
-            -webkit-user-select: none;
-            height: 100vh;
-            width: 100vw;
-            touch-action: manipulation;
-        }
+#ui {
+  position:fixed; bottom:0; left:0; right:0;
+  background:rgba(2,8,2,0.95); border-top:1px solid #0a2a0a;
+  display:flex; align-items:stretch; height:72px; z-index:10;
+}
+.char-btn {
+  flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:3px; cursor:pointer; border-right:1px solid #0a2a0a; transition:background 0.2s; padding:6px 4px;
+}
+.char-btn:last-child { border-right:none; }
+.char-btn:hover, .char-btn.active { background:rgba(0,255,65,0.06); }
+.char-btn.active { border-top:2px solid var(--col); }
+.btn-dot { width:10px; height:10px; border-radius:50%; }
+.btn-name { font-size:9px; color:#8aaa8a; letter-spacing:1px; }
+.btn-class { font-size:8px; color:#1a4a1a; letter-spacing:1px; }
 
-        /* CRT scanlines overlay */
-        body::after {
-            content: "";
-            display: block;
-            position: fixed;
-            inset: 0;
-            background:
-                linear-gradient(rgba(0,0,0,0) 50%, rgba(0,0,0,0.18) 50%),
-                linear-gradient(90deg, rgba(255,0,0,0.03), rgba(0,255,0,0.015), rgba(0,0,255,0.03));
-            background-size: 100% 2px, 3px 100%;
-            z-index: 100;
-            pointer-events: none;
-        }
+#controls-hint {
+  position:fixed; bottom:85px; left:50%; transform:translateX(-50%);
+  font-size:10px; color:rgba(0,255,65,0.4); letter-spacing:2px; pointer-events:none; text-align:center;
+  z-index:15;
+}
 
-        #gameCanvas {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            z-index: 1;
-        }
-
-        /* ── LOG TERMINAL (bottom) ── */
-        #logTerminal {
-            position: fixed;
-            bottom: 0; left: 0; right: 0;
-            z-index: 50;
-            padding: 8px 14px 12px;
-            background: linear-gradient(transparent, rgba(5,7,10,0.92) 30%);
-            max-height: 120px;
-            overflow: hidden;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-            gap: 3px;
-        }
-        .log-line {
-            font-size: 11px;
-            line-height: 1.5;
-            opacity: 0;
-            animation: fadeIn 0.35s forwards;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-        .log-line.ok    { color: #00ff66; text-shadow: 0 0 6px #00ff66; }
-        .log-line.warn  { color: #ff9900; text-shadow: 0 0 6px #ff9900; }
-        .log-line.error { color: #ff0055; text-shadow: 0 0 6px #ff0055; }
-        .log-line.info  { color: #00f0ff; }
-        .log-line.tape  { color: #a855f7; text-shadow: 0 0 8px #a855f7; }
-
-        /* ── STATUS BAR (top) ── */
-        #statusBar {
-            position: fixed;
-            top: 0; left: 0; right: 0;
-            z-index: 50;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 8px 14px;
-            background: linear-gradient(rgba(5,7,10,0.85), transparent);
-            font-size: 10px;
-            letter-spacing: 0.08em;
-        }
-        #statusBar.hidden { display: none; }
-        #batteryBar {
-            width: 80px;
-            height: 8px;
-            border: 1px solid #00f0ff55;
-            border-radius: 2px;
-            overflow: hidden;
-            display: inline-block;
-            vertical-align: middle;
-            margin-left: 6px;
-        }
-        #batteryFill {
-            height: 100%;
-            background: #00ff66;
-            transition: width 0.5s, background 0.5s;
-        }
-        #cassettesDisplay {
-            color: #a855f7;
-            text-shadow: 0 0 6px #a855f7;
-        }
-        #weatherDisplay { color: #00f0ff; }
-
-        /* ── OVERLAY (финальный экран) ── */
-        #overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 80;
-            background: rgba(5,7,10,0.92);
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            padding: 30px 20px;
-            text-align: center;
-        }
-        #overlay.visible { display: flex; }
-
-        .overlay-logo {
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 900;
-            font-size: clamp(28px, 9vw, 48px);
-            letter-spacing: 0.12em;
-            background: linear-gradient(90deg, #00f0ff 0%, #a855f7 40%, #00f0ff 80%);
-            background-size: 200% auto;
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            animation: shimmer 3s linear infinite;
-            filter: drop-shadow(0 0 16px rgba(0,240,255,0.4));
-            margin-bottom: 8px;
-        }
-        @keyframes shimmer { 0%{background-position:0%} 100%{background-position:200%} }
-        @keyframes fadeIn  { to { opacity: 1; } }
-        @keyframes pulse   { 0%,100%{opacity:1} 50%{opacity:0.5} }
-        @keyframes blink   { 0%,49%{opacity:1} 50%,100%{opacity:0} }
-
-        .overlay-sub {
-            font-size: 10px;
-            letter-spacing: 0.3em;
-            color: #a855f7;
-            text-shadow: 0 0 8px #a855f7;
-            margin-bottom: 24px;
-        }
-        .overlay-log {
-            font-size: 12px;
-            line-height: 2;
-            color: #00f0ff;
-            width: 100%;
-            max-width: 400px;
-            border: 1px dashed rgba(0,240,255,0.2);
-            padding: 14px 16px;
-            margin-bottom: 20px;
-            text-align: left;
-        }
-        .overlay-log .ol  { color: #00ff66; }
-        .overlay-log .ow  { color: #a855f7; }
-
-        .neon-btn {
-            display: inline-block;
-            padding: 14px 24px;
-            border: 2px solid #00ff66;
-            color: #00ff66;
-            text-shadow: 0 0 10px #00ff66;
-            box-shadow: 0 0 20px rgba(0,255,102,0.25), inset 0 0 20px rgba(0,255,102,0.05);
-            font-family: 'Share Tech Mono', monospace;
-            font-size: 13px;
-            letter-spacing: 0.12em;
-            cursor: pointer;
-            animation: pulse 2s infinite;
-            margin-bottom: 10px;
-        }
-        .neon-btn:active { background: rgba(0,255,102,0.1); }
-
-        .standby-overlay {
-            display: none;
-            position: fixed;
-            inset: 0;
-            z-index: 75;
-            background: rgba(5,7,10,0.88);
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            gap: 16px;
-        }
-        .standby-overlay.visible { display: flex; }
-        .standby-title {
-            font-family: 'Orbitron', sans-serif;
-            font-size: 18px;
-            color: #ff9900;
-            text-shadow: 0 0 16px #ff9900;
-            animation: pulse 1.5s infinite;
-        }
-        .standby-sub { font-size: 11px; color: #00f0ff; line-height: 1.8; }
-        .solar-icon { font-size: 48px; animation: pulse 2s infinite; }
-
-        /* cursor blink */
-        .cursor {
-            display: inline-block;
-            width: 7px; height: 13px;
-            background: #00f0ff;
-            vertical-align: middle;
-            animation: blink 1s infinite;
-        }
-    </style>
+#game-overlay {
+  position:fixed; inset:0; background:rgba(2,8,2,0.85);
+  display:none; flex-direction:column; align-items:center; justify-content:center;
+  z-index:100; color:#00FF41; text-align:center; padding:20px;
+}
+.overlay-title { font-size:24px; letter-spacing:6px; margin-bottom:10px; text-shadow:0 0 10px #00FF41; }
+.overlay-text { font-size:12px; color:#8aaa8a; max-width:300px; line-height:1.6; margin-bottom:20px; }
+.btn-restart {
+  background:transparent; border:1px solid #00FF41; color:#00FF41;
+  padding:10px 24px; font-family:inherit; font-size:12px; cursor:pointer; box-shadow:0 0 8px rgba(0,255,65,0.2);
+}
+</style>
 </head>
 <body>
 
-<canvas id="gameCanvas"></canvas>
-
-<!-- Status bar (hidden during intro) -->
-<div id="statusBar" class="hidden">
-    <div id="weatherDisplay">☀ СОЛНЕЧНО</div>
-    <div>
-        <span id="cassettesDisplay">📼 0/5</span>
-    </div>
-    <div>
-        BAT <div id="batteryBar"><div id="batteryFill" style="width:100%"></div></div>
-    </div>
+<div id="info-panel">
+  <div class="info-title">OMNIVERSE</div>
+  <div class="info-sep">//</div>
+  <div>
+    <div class="info-char" id="char-name">ЗАГРУЗКА...</div>
+    <div class="info-lvl" id="char-lvl">LVL 0 · 0♥</div>
+  </div>
+  <div class="info-counter" id="cassette-hud">🍄 0/5</div>
 </div>
 
-<!-- Log terminal -->
-<div id="logTerminal"></div>
+<div id="controls-hint">← СВАЙП ВЛЕВО/ВПРАВО · ТАП ДЛЯ ПРЫЖКА →</div>
 
-<!-- Standby overlay (dead battery) -->
-<div class="standby-overlay" id="standbyOverlay">
-    <div class="solar-icon">☀️</div>
-    <div class="standby-title">[ STANDBY: SOLAR PANELS DEPLOYED ]</div>
-    <div class="standby-sub">
-        Заряд исчерпан. Панели развёрнуты.<br>
-        Ожидание солнечной фазы суток...<br><br>
-        <span id="standbyTimer">—</span>
-    </div>
+<div id="game-overlay">
+  <div class="overlay-title" id="overlay-header">МИЦЕЛИЙ ДОСТИГНУТ</div>
+  <div class="overlay-text" id="overlay-desc">Вы успешно собрали 5 утерянных кассет данных и вошли в симуляцию грибного межа.</div>
+  <button class="btn-restart" onclick="resetGame()">НАЧАТЬ ЗАНОВО</button>
 </div>
 
-<!-- Final overlay -->
-<div id="overlay">
-    <div class="overlay-logo">OMNIVERSE</div>
-    <div class="overlay-sub">TELEGRAM MINI APP · MULTIVERSE MMO</div>
-    <div class="overlay-log" id="finalLog">
-        <span class="ol">[ STATUS ]</span> ЭТАП 1 ЗАВЕРШЁН.<br>
-        <span class="ol">[ OK ]</span> Свободный узел Мицелия активирован.<br>
-        <span class="ow">[ QUEUE ]</span> Ожидайте развёртывания ЭТАПА 2.<br>
-        <span class="ow">[ INFO ]</span> Прилёт дроида ЕВА — в разработке...<br>
-        <span class="cursor"></span>
-    </div>
-    <div class="neon-btn" id="shareBtn">[ ЗАФИКСИРОВАТЬ СУВЕРЕНИТЕТ В КАНАЛЕ ]</div>
-    <div style="font-size:10px;color:#00f0ff55;margin-top:8px;">OMNIVERSE · CORE TERMINAL v0.4.2</div>
-</div>
+<canvas id="c"></canvas>
+<div id="ui"></div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-// ════════════════════════════════════════════════
-//  TELEGRAM INIT
-// ════════════════════════════════════════════════
-const tg = window.Telegram?.WebApp;
-if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor?.('#05070a'); }
-const tgUserId = tg?.initDataUnsafe?.user?.id || Math.floor(Math.random() * 999999);
+// ═══════════════════════════════════════════════════
+//  3D ENGINE SETUP (адаптирован под открытый мир с островами)
+// ═══════════════════════════════════════════════════
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.setClearColor(0x020802);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-// ════════════════════════════════════════════════
-//  CANVAS & CONTEXT
-// ════════════════════════════════════════════════
-const canvas = document.getElementById('gameCanvas');
-const ctx    = canvas.getContext('2d');
+const W = ()=>innerWidth, H = ()=>innerHeight-72-52;
+renderer.setSize(W(), H());
+canvas.style.marginTop = '52px';
 
-function resizeCanvas() {
-    canvas.width  = window.innerWidth;
-    canvas.height = window.innerHeight;
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x020802, 0.025); // туман, скрывающий далёкие части
+
+const camera = new THREE.PerspectiveCamera(55, W()/H(), 0.1, 80);
+camera.position.set(0, 6, 8);
+camera.lookAt(0, 0, -4);
+
+// ── СВЕТ ───────────────────────────────────────────
+scene.add(new THREE.AmbientLight(0x112211, 1.8));
+const keyLight = new THREE.DirectionalLight(0x00FF41, 2.5);
+keyLight.position.set(8, 12, 4);
+keyLight.castShadow = true;
+keyLight.shadow.mapSize.width = 1024;
+keyLight.shadow.mapSize.height = 1024;
+keyLight.shadow.camera.near = 1;
+keyLight.shadow.camera.far = 30;
+keyLight.shadow.camera.left = -15;
+keyLight.shadow.camera.right = 15;
+keyLight.shadow.camera.top = 15;
+keyLight.shadow.camera.bottom = -15;
+scene.add(keyLight);
+
+const fillLight = new THREE.DirectionalLight(0x225522, 1.0);
+fillLight.position.set(-5, 4, -2);
+scene.add(fillLight);
+
+const rimLight = new THREE.PointLight(0x00FF41, 2.0, 20);
+rimLight.position.set(0, 5, -8);
+scene.add(rimLight);
+
+// ── ДЕКОРАТИВНЫЕ ЧАСТИЦЫ (светлячки) ──────────────
+const pGeo = new THREE.BufferGeometry();
+const pCount = 300;
+const pArr = new Float32Array(pCount * 3);
+const pSizes = new Float32Array(pCount);
+for(let i=0; i<pCount; i++){
+  pArr[i*3] = (Math.random()-0.5)*40;
+  pArr[i*3+1] = Math.random()*8 + 1;
+  pArr[i*3+2] = -Math.random()*60 - 5;
+  pSizes[i] = 0.05 + Math.random()*0.1;
 }
-resizeCanvas();
-window.addEventListener('resize', resizeCanvas);
+pGeo.setAttribute('position', new THREE.BufferAttribute(pArr,3));
+pGeo.setAttribute('size', new THREE.BufferAttribute(pSizes,1));
+const pMat = new THREE.PointsMaterial({
+  color:0x00FF41,
+  size:0.12,
+  transparent:true,
+  opacity:0.6,
+  blending:THREE.AdditiveBlending,
+  sizeAttenuation:true
+});
+const particles = new THREE.Points(pGeo, pMat);
+scene.add(particles);
 
-// ════════════════════════════════════════════════
-//  AUDIO ENGINE (Web Audio API)
-// ════════════════════════════════════════════════
-let audioCtx = null;
-let windGain = null, windFilter = null;
-
-function initAudio() {
-    if (audioCtx) return;
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-
-    // Wind noise
-    const bufferSize = audioCtx.sampleRate * 2;
-    const buffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-
-    const noise = audioCtx.createBufferSource();
-    noise.buffer = buffer;
-    noise.loop = true;
-
-    windFilter = audioCtx.createBiquadFilter();
-    windFilter.type = 'bandpass';
-    windFilter.frequency.value = 600;
-    windFilter.Q.value = 0.7;
-
-    windGain = audioCtx.createGain();
-    windGain.gain.value = 0;
-
-    noise.connect(windFilter);
-    windFilter.connect(windGain);
-    windGain.connect(audioCtx.destination);
-    noise.start();
+// ═══════════════════════════════════════════════════
+//  ВОКСЕЛЬНЫЙ СТРОИТЕЛЬ (персонажи)
+// ═══════════════════════════════════════════════════
+function voxel(w, h, d, color, emissive=0x000000, emissInt=0) {
+  return new THREE.Mesh(
+    new THREE.BoxGeometry(w,h,d),
+    new THREE.MeshStandardMaterial({
+      color, roughness:0.6, metalness:0.1,
+      emissive, emissiveIntensity: emissInt
+    })
+  );
 }
-
-function setWindIntensity(vol) {
-    if (!windGain) return;
-    windGain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.5);
-}
-
-function playThud() {
-    if (!audioCtx) return;
-    const osc = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(120, audioCtx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(40, audioCtx.currentTime + 0.15);
-    gain.gain.setValueAtTime(0.4, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.16);
-}
-
-function playCassetteSound() {
-    if (!audioCtx) return;
-    const notes = [220, 277, 330, 370, 440];
-    notes.forEach((freq, i) => {
-        const osc  = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = freq;
-        gain.gain.setValueAtTime(0, audioCtx.currentTime + i * 0.12);
-        gain.gain.linearRampToValueAtTime(0.15, audioCtx.currentTime + i * 0.12 + 0.05);
-        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + i * 0.12 + 0.6);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(audioCtx.currentTime + i * 0.12);
-        osc.stop(audioCtx.currentTime + i * 0.12 + 0.65);
-    });
+function add(grp, mesh, x, y, z) {
+  mesh.position.set(x,y,z);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  grp.add(mesh);
+  return mesh;
 }
 
-function playHydraulic() {
-    if (!audioCtx) return;
-    const osc  = audioCtx.createOscillator();
-    const gain = audioCtx.createGain();
-    osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(80, audioCtx.currentTime);
-    osc.frequency.linearRampToValueAtTime(200, audioCtx.currentTime + 0.3);
-    osc.frequency.linearRampToValueAtTime(60, audioCtx.currentTime + 0.6);
-    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.7);
-    osc.connect(gain);
-    gain.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.75);
-}
+function buildCharacter(def) {
+  const G = new THREE.Group();
+  const {
+    skin, shirt, pants, boots, accent, glowCol,
+    headW=0.72, headH=0.72, headD=0.72, bodyW=0.72, bodyH=1.0, bodyD=0.44,
+    shoulderExtra=0, armW=0.28, armH=0.9, armD=0.28, legW=0.3, legH=0.9, legD=0.3,
+    hasHelmet=false, helmetCol=0x333333, hasVisor=false, visorCol=0x4488FF,
+    hasHair=false, hairCol=0x111111, hasBeard=false, hasBackpack=false, backpackCol=0x223322,
+    hasWeapon=false, weaponDef=null, hasArmor=false, armorCol=0x334433, hasCape=false, capeCol=0x220011,
+    hasHat=false, hatCol=0x111111, hasMushroom=false, hasEars=false, earCol=0x553300
+  } = def;
 
-// Cassette proximity hum
-let cassetteHumGain = null;
-function startCassetteHum(vol) {
-    if (!audioCtx) return;
-    if (!cassetteHumGain) {
-        const osc  = audioCtx.createOscillator();
-        cassetteHumGain = audioCtx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = 55;
-        cassetteHumGain.gain.value = 0;
-        osc.connect(cassetteHumGain);
-        cassetteHumGain.connect(audioCtx.destination);
-        osc.start();
+  const BY = legH + bodyH/2;
+  const HY = BY + bodyH/2 + headH/2;
+
+  G.legLGroup = new THREE.Group(); G.legLGroup.position.set(-(legW/2+0.02), legH, 0); G.add(G.legLGroup);
+  G.legRGroup = new THREE.Group(); G.legRGroup.position.set((legW/2+0.02), legH, 0); G.add(G.legRGroup);
+  const m_legL = voxel(legW, legH, legD, pants); m_legL.position.y = -legH/2; G.legLGroup.add(m_legL);
+  const m_legR = voxel(legW, legH, legD, pants); m_legR.position.y = -legH/2; G.legRGroup.add(m_legR);
+  const bootL = voxel(legW+0.06, 0.2, legD+0.1, boots); add(G.legLGroup, bootL, 0, -legH+0.1, 0.05);
+  const bootR = voxel(legW+0.06, 0.2, legD+0.1, boots); add(G.legRGroup, bootR, 0, -legH+0.1, 0.05);
+
+  const body = voxel(bodyW, bodyH, bodyD, shirt); add(G, body, 0, BY, 0);
+  if(hasArmor) {
+    const sL = voxel(0.18+shoulderExtra, 0.35, bodyD+0.1, armorCol, glowCol, 0.1); add(G, sL, -(bodyW/2+0.09+shoulderExtra/2), BY+0.25, 0);
+    const sR = voxel(0.18+shoulderExtra, 0.35, bodyD+0.1, armorCol, glowCol, 0.1); add(G, sR, (bodyW/2+0.09+shoulderExtra/2), BY+0.25, 0);
+  }
+  if(hasCape) { const cape = voxel(bodyW-0.1, bodyH*0.9, 0.08, capeCol); add(G, cape, 0, BY-0.05, -(bodyD/2+0.05)); }
+
+  G.armLGroup = new THREE.Group(); G.armLGroup.position.set(-(bodyW/2+armW/2+0.04), BY+0.3, 0); G.add(G.armLGroup);
+  G.armRGroup = new THREE.Group(); G.armRGroup.position.set((bodyW/2+armW/2+0.04), BY+0.3, 0); G.add(G.armRGroup);
+  const m_armL = voxel(armW, armH, armD, shirt); m_armL.position.y = -armH/2; G.armLGroup.add(m_armL);
+  const m_armR = voxel(armW, armH, armD, shirt); m_armR.position.y = -armH/2; G.armRGroup.add(m_armR);
+  const gloveL = voxel(armW+0.06, 0.18, armD+0.06, accent); add(G.armLGroup, gloveL, 0, -armH+0.09, 0);
+  const gloveR = voxel(armW+0.06, 0.18, armD+0.06, accent); add(G.armRGroup, gloveR, 0, -armH+0.09, 0);
+
+  const head = voxel(headW, headH, headD, skin); add(G, head, 0, HY, 0);
+  const eyeL = voxel(0.12, 0.1, 0.05, 0x001100, glowCol, 0.8); add(G, eyeL, -0.16, HY+0.04, headD/2+0.01);
+  const eyeR = voxel(0.12, 0.1, 0.05, 0x001100, glowCol, 0.8); add(G, eyeR, 0.16, HY+0.04, headD/2+0.01);
+  const mouth = voxel(0.22, 0.07, 0.04, 0x001100); add(G, mouth, 0, HY-0.18, headD/2+0.01);
+
+  if(hasHair) {
+    const hair = voxel(headW+0.04, 0.2, headD+0.04, hairCol); add(G, hair, 0, HY+headH/2+0.06, 0);
+    const bang = voxel(headW, 0.18, 0.12, hairCol); add(G, bang, 0, HY+headH/2-0.02, headD/2+0.02);
+  }
+  if(hasBeard) { const beard = voxel(headW-0.1, 0.22, 0.1, hairCol||0x332200); add(G, beard, 0, HY-headH/2+0.02, headD/2+0.02); }
+  if(hasEars) {
+    const eL = voxel(0.1, 0.28, 0.12, earCol); add(G, eL, -(headW/2+0.06), HY+0.06, 0);
+    const eR = voxel(0.1, 0.28, 0.12, earCol); add(G, eR, (headW/2+0.06), HY+0.06, 0);
+  }
+  if(hasHelmet) {
+    const helm = voxel(headW+0.1, headH*0.65, headD+0.1, helmetCol); add(G, helm, 0, HY+0.05, 0);
+    if(hasVisor) { const visor = voxel(headW-0.1, 0.18, 0.06, visorCol, visorCol, 1.2); add(G, visor, 0, HY+0.06, headD/2+0.08); }
+  }
+  if(hasHat) {
+    const brim = voxel(headW+0.3, 0.08, headD+0.3, hatCol); add(G, brim, 0, HY+headH/2+0.04, 0);
+    const top2 = voxel(headW-0.1, 0.45, headD-0.1, hatCol); add(G, top2, 0, HY+headH/2+0.04+0.27, 0);
+  }
+  if(hasBackpack) {
+    const bp = voxel(0.5, 0.7, 0.28, backpackCol); add(G, bp, 0, BY+0.1, -(bodyD/2+0.18));
+    const bpTop = voxel(0.3, 0.2, 0.2, backpackCol); add(G, bpTop, 0, BY+0.52, -(bodyD/2+0.18));
+  }
+  if(hasMushroom) {
+    const stem = voxel(0.14, 0.25, 0.14, 0x88AA88); add(G, stem, 0.18, HY+headH/2+0.23, 0);
+    const cap = voxel(0.38, 0.18, 0.38, accent, accent, 0.3); add(G, cap, 0.18, HY+headH/2+0.42, 0);
+  }
+
+  if(hasWeapon && weaponDef) {
+    const w = weaponDef;
+    const wGrp = new THREE.Group();
+    if(w.type==='sword') {
+      const blade = voxel(0.1, 0.9, 0.08, w.col||0x88AAAA, w.col||0x88AAAA, 0.2); wGrp.add(blade); blade.position.y = 0.5;
+      const guard = voxel(0.3, 0.08, 0.1, accent); wGrp.add(guard);
+      const hilt  = voxel(0.09, 0.3, 0.09, accent); wGrp.add(hilt); hilt.position.y = -0.18;
+      wGrp.position.set(0, -armH, 0.1); wGrp.rotation.x = Math.PI/3;
     }
-    cassetteHumGain.gain.setTargetAtTime(vol, audioCtx.currentTime, 0.4);
+    if(w.type==='rifle') {
+      const stock  = voxel(0.12, 0.14, 0.7, w.col||0x223322); wGrp.add(stock);
+      const barrel = voxel(0.08, 0.08, 0.5, 0x334433); wGrp.add(barrel); barrel.position.set(0, 0.1, 0.2);
+      const grip   = voxel(0.1, 0.3, 0.12, w.col||0x223322); wGrp.add(grip); grip.position.set(0,-0.16,-0.1);
+      wGrp.position.set(0, -armH, 0.2); wGrp.rotation.x = Math.PI/2;
+    }
+    if(w.type==='staff') {
+      const staff = voxel(0.08, 1.5, 0.08, w.col||0x442200); wGrp.add(staff); staff.position.y=0.4;
+      const orb   = voxel(0.26, 0.26, 0.26, accent, accent, 1.0); wGrp.add(orb); orb.position.y=1.2;
+      wGrp.position.set(0, -armH+0.2, 0.1);
+    }
+    if(w.type==='crowbar') {
+      const bar = voxel(0.08, 0.85, 0.08, w.col||0x445544); wGrp.add(bar); bar.position.y=0.3;
+      const tip = voxel(0.22, 0.08, 0.08, w.col||0x445544); wGrp.add(tip); tip.position.y=0.78;
+      wGrp.position.set(0, -armH, 0.1); wGrp.rotation.x = Math.PI/4;
+    }
+    if(w.type==='cannon') {
+      const barrel = voxel(0.3, 0.3, 0.8, w.col||0x334433); wGrp.add(barrel); barrel.position.z=0.1;
+      const base   = voxel(0.44, 0.2, 0.44, 0x223322); wGrp.add(base);
+      wGrp.position.set(0, -armH, 0); wGrp.rotation.x = Math.PI/2;
+    }
+    G.armRGroup.add(wGrp);
+  }
+
+  const badge = voxel(0.22, 0.16, 0.06, accent, accent, 0.8); add(G, badge, 0, BY+0.15, bodyD/2+0.02);
+
+  G.circleGeo = new THREE.RingGeometry(0.5, 0.65, 16);
+  G.circleMat = new THREE.MeshBasicMaterial({ color:accent, side:THREE.DoubleSide, transparent:true, opacity:0.4 });
+  const pCircle = new THREE.Mesh(G.circleGeo, G.circleMat);
+  pCircle.rotation.x = -Math.PI/2;
+  pCircle.position.y = 0.02;
+  G.add(pCircle);
+
+  G.scale.setScalar(0.85);
+  G._def = def;
+  return G;
 }
 
-// ════════════════════════════════════════════════
-//  GAME STATE
-// ════════════════════════════════════════════════
-const STATE = { INTRO: 'INTRO', WORK: 'WORK', STANDBY: 'STANDBY', FINISH: 'FINISH' };
-let gameState = STATE.INTRO;
-
-// Time
-const REAL_CYCLE_MS  = 24 * 60 * 1000;    // 24 реальных минуты = игровые сутки
-const BATTERY_MS     = 15 * 60 * 1000;    // 15 минут = полный заряд
-const WEATHER_MS     =  4 * 60 * 1000;    // 4 минуты = смена погоды
-
-let gameStartTime     = null;   // когда вошли в WORK
-let batteryStartTime  = null;
-let lastWeatherChange = null;
-
-const WEATHERS = [
-    { id: 'sun',  label: '☀  СОЛНЕЧНО',    drainMult: 1.0, chargeMult: 2.0, dustIntensity: 0.2 },
-    { id: 'wind', label: '💨 ПЫЛЬНЫЙ ВЕТЕР', drainMult: 1.6, chargeMult: 0.5, dustIntensity: 1.0 },
-    { id: 'smog', label: '🌫  ТОТ. СМОГ',    drainMult: 1.2, chargeMult: 0.0, dustIntensity: 0.5 },
+// ═══════════════════════════════════════════════════
+//  ХАРАКТЕРИСТИКИ ЛИГ ПЕРСОНАЖЕЙ (сохранены)
+// ═══════════════════════════════════════════════════
+const CHARS = [
+  { id:'you', name:'ВЫ — НОЧНОЙ ОХОТНИК', league:'SOULS', lvl:'LVL 7', lives:'12.5♥', skin:0x3A5A3A, shirt:0x1A3A1A, pants:0x0F2A0F, boots:0x0A1A0A, accent:0x00FF41, glowCol:0x00FF41, hasHair:true, hairCol:0x002200, hasArmor:true, armorCol:0x1A3A1A, shoulderExtra:0.06, hasCape:true, capeCol:0x001100, hasWeapon:true, weaponDef:{type:'sword', col:0x00FF41} },
+  { id:'pubg', name:'ARKADY_V — ДЕСАНТНИК', league:'PUBG', lvl:'LVL 12', lives:'34.1♥', skin:0x8B7355, shirt:0x3A4A2A, pants:0x2A3A1A, boots:0x1A2A0A, accent:0xFFAA00, glowCol:0xFFCC44, hasHelmet:true, helmetCol:0x2A3A1A, hasArmor:true, armorCol:0x3A4A2A, shoulderExtra:0.04, hasBackpack:true, backpackCol:0x2A3020, hasWeapon:true, weaponDef:{type:'rifle', col:0x3A4A2A} },
+  { id:'tank', name:'TANK_PILOT — КОМАНДИР', league:'ТАНКИ', lvl:'LVL 5', lives:'8.9♥', skin:0x6A5A4A, shirt:0x2A2A3A, pants:0x1A1A2A, boots:0x111120, accent:0xFF4444, glowCol:0xFF2222, hasHelmet:true, helmetCol:0x2A2A3A, hasVisor:true, visorCol:0xFF4444, hasArmor:true, armorCol:0x2A2A4A, shoulderExtra:0.14, hasWeapon:true, weaponDef:{type:'cannon', col:0x2A2A3A} },
+  { id:'souls', name:'NIGHTFOX — ВЕДЬМАК', league:'SOULS', lvl:'LVL 19', lives:'91.0♥', skin:0x4A3A2A, shirt:0x1A0A1A, pants:0x120812, boots:0x0A060A, accent:0xAA44FF, glowCol:0xCC66FF, hasHair:true, hairCol:0x110022, hasBeard:true, hasCape:true, capeCol:0x1A0022, hasHat:true, hatCol:0x0A0015, hasWeapon:true, weaponDef:{type:'staff', col:0x2A1A0A} },
+  { id:'free', name:'GHOST_88 — ВОЛЬНЫЙ', league:'FREE', lvl:'LVL 3', lives:'3.2♥', skin:0x7AAA7A, shirt:0x2A6A2A, pants:0x1A4A1A, boots:0x0F2A0F, accent:0x44FF44, glowCol:0x00FF41, hasHair:true, hairCol:0x115511, hasMushroom:true },
+  { id:'freeman', name:'FREEMAN — УЧЁНЫЙ', league:'FREEMAN', lvl:'LVL 8', lives:'22.0♥', skin:0x8A7060, shirt:0x3A3A3A, pants:0x2A2A2A, boots:0x1A1A1A, accent:0xFF8800, glowCol:0xFF6600, hasHair:true, hairCol:0x1A0A00, hasBeard:true, hasArmor:true, armorCol:0xFF6600, shoulderExtra:0.08, hasWeapon:true, weaponDef:{type:'crowbar', col:0x445544} }
 ];
-let currentWeather = WEATHERS[0];
-let weatherSeed    = (tgUserId * 9301 + 49297) % 233280;
 
-function nextWeather() {
-    weatherSeed = (weatherSeed * 9301 + 49297) % 233280;
-    const idx = weatherSeed % WEATHERS.length;
-    currentWeather = WEATHERS[idx];
-    document.getElementById('weatherDisplay').textContent = currentWeather.label;
-    setWindIntensity(currentWeather.dustIntensity * 0.06);
-    addLog(`[ ПОГОДА ] ${currentWeather.label}`, currentWeather.id === 'sun' ? 'ok' : 'warn');
-}
+// ═══════════════════════════════════════════════════
+//  ГЕНЕРАЦИЯ МИРА С ОСТРОВАМИ (стиль Dota)
+// ═══════════════════════════════════════════════════
+const worldGroup = new THREE.Group();
+scene.add(worldGroup);
 
-// Battery (0–1)
-let battery = 1.0;
-
-function updateBattery(dt) {
-    if (gameState !== STATE.WORK) return;
-    const drain = (dt / BATTERY_MS) * currentWeather.drainMult;
-    battery = Math.max(0, battery - drain);
-
-    const fill = document.getElementById('batteryFill');
-    fill.style.width = (battery * 100) + '%';
-    fill.style.background = battery > 0.5 ? '#00ff66' : battery > 0.2 ? '#ff9900' : '#ff0055';
-
-    if (battery <= 0) enterStandby();
-}
-
-// ════════════════════════════════════════════════
-//  CASSETTES
-// ════════════════════════════════════════════════
-const SLOGANS = [
-    "Данные — это не ресурс. Это ты сам.",
-    "Сеть без цензора — не анархия. Это честность.",
-    "Шифрование — это не паранойя, это гигиена.",
-    "Свобода слова умирает, когда её измеряют лайками.",
-    "Децентрализация — это антихрупкость духа.",
-    "Анонимность — право, а не привилегия.",
-    "Каждый пакет данных — это голос. Не позволяй его глушить.",
-    "Протокол важнее платформы.",
-    "Открытый код — это аудит власти.",
-    "Интернет помнит. Убедись, что он помнит правду.",
-    "Mesh-сети — это нервы свободного общества.",
-    "Не доверяй облаку, которое ты не контролируешь.",
-    "Алгоритм без объяснений — это приговор без суда.",
-    "P2P — значит, мы равны.",
-    "Частная жизнь — это не секрет. Это граница.",
-    "Метаданные расскажут о тебе больше, чем дневник.",
-    "Суверенитет начинается с собственного сервера.",
-    "Пропускная способность — это свобода слова нашего времени.",
-    "Сеть Мицелия живёт, пока живёт хоть один узел.",
-    "Код — последний язык, который ещё нельзя запретить.",
-];
-
-let collectedCassettes = 0;
-let collectedSlogans   = [];
-
-// ════════════════════════════════════════════════
-//  INTRO PHASE
-// ════════════════════════════════════════════════
-let lensOpen   = 0;      // 0–100
-let holoAlpha  = 0;      // 0–1
-let holoZone   = null;
-let holoFlicker = 1;
-
-function drawIntro(dt) {
-    // Full black backdrop
-    ctx.fillStyle = '#05070a';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
-
-    // Open lens shutters
-    if (lensOpen < 100) {
-        lensOpen += dt * 0.025; // ~4 seconds to open
+// Простой шум Перлина для генерации высот (inline реализация)
+class Perlin {
+  constructor() {
+    this.p = new Uint8Array(512);
+    const perm = new Uint8Array(256);
+    for (let i = 0; i < 256; i++) perm[i] = i;
+    // shuffle
+    for (let i = 255; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [perm[i], perm[j]] = [perm[j], perm[i]];
     }
-
-    const openPx = (canvas.height / 2) * (lensOpen / 100);
-
-    // Draw the "visible" slice (gradient scanlines inside)
-    if (openPx > 1) {
-        // subtle green tint of sensor boot
-        const grad = ctx.createLinearGradient(0, cy - openPx, 0, cy + openPx);
-        grad.addColorStop(0,   'rgba(0,240,255,0.04)');
-        grad.addColorStop(0.5, 'rgba(0,20,10,0.2)');
-        grad.addColorStop(1,   'rgba(0,240,255,0.04)');
-        ctx.fillStyle = grad;
-        ctx.fillRect(0, cy - openPx, canvas.width, openPx * 2);
-    }
-
-    // Black shutters (top & bottom)
-    ctx.fillStyle = '#05070a';
-    ctx.fillRect(0, 0,           canvas.width, cy - openPx);
-    ctx.fillRect(0, cy + openPx, canvas.width, cy - openPx + 2);
-
-    // Shutter edge glow
-    if (openPx > 4) {
-        ctx.strokeStyle = `rgba(0,240,255,${0.6 * (lensOpen/100)})`;
-        ctx.lineWidth = 1.5;
-        ctx.beginPath();
-        ctx.moveTo(0, cy - openPx); ctx.lineTo(canvas.width, cy - openPx);
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.moveTo(0, cy + openPx); ctx.lineTo(canvas.width, cy + openPx);
-        ctx.stroke();
-    }
-
-    // Boot text lines (appear at specific lens openings)
-    ctx.font = '11px Share Tech Mono, monospace';
-    const lines = [
-        { pct: 15, text: '[ BOOTING SYSTEM V0.1 ]',     col: '#00f0ff' },
-        { pct: 35, text: '[ CALIBRATING OPTICS... OK ]', col: '#00ff66' },
-        { pct: 55, text: '[ MOTOR UNIT ... ONLINE ]',    col: '#00ff66' },
-        { pct: 72, text: '[ SECTOR SCAN ... ACTIVE ]',   col: '#00f0ff' },
-    ];
-    lines.forEach((l, i) => {
-        if (lensOpen >= l.pct) {
-            const a = Math.min(1, (lensOpen - l.pct) / 10);
-            ctx.fillStyle = l.col.replace(')', `,${a})`).replace('rgb', 'rgba');
-            ctx.globalAlpha = a;
-            ctx.fillText(l.text, 20, cy - openPx * 0.6 + i * 18 - 27);
-            ctx.globalAlpha = 1;
-        }
-    });
-
-    // Holographic door UI (Dead Space style)
-    if (lensOpen >= 100) {
-        if (holoAlpha < 1) holoAlpha = Math.min(1, holoAlpha + dt * 0.002);
-
-        holoFlicker = 0.7 + Math.random() * 0.3;
-        const a = holoAlpha * holoFlicker;
-
-        const rw = Math.min(300, canvas.width * 0.8);
-        const rh = 130;
-        const rx = cx - rw / 2;
-        const ry = cy - rh / 2;
-
-        // Frame
-        ctx.strokeStyle = `rgba(0,240,255,${a * 0.8})`;
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(rx, ry, rw, rh);
-
-        // Corner marks
-        const mk = 12;
-        [
-            [rx, ry], [rx+rw, ry], [rx, ry+rh], [rx+rw, ry+rh]
-        ].forEach(([x, y], i) => {
-            ctx.beginPath();
-            ctx.moveTo(x + (i%2===0?mk:-mk), y);
-            ctx.lineTo(x, y);
-            ctx.lineTo(x, y + (i<2?mk:-mk));
-            ctx.strokeStyle = `rgba(0,240,255,${a})`;
-            ctx.stroke();
-        });
-
-        // Title
-        ctx.fillStyle = `rgba(0,240,255,${a})`;
-        ctx.font = '12px Share Tech Mono, monospace';
-        ctx.fillText('[ ФУРГОНЧИК REANIMATOR · ГЕРМОЗАТВОР ]', rx + 12, ry + 26);
-
-        // Divider
-        ctx.strokeStyle = `rgba(0,240,255,${a * 0.4})`;
-        ctx.beginPath();
-        ctx.moveTo(rx + 12, ry + 36);
-        ctx.lineTo(rx + rw - 12, ry + 36);
-        ctx.stroke();
-
-        // Button
-        const btnCol = `rgba(0,255,102,${a * (0.85 + Math.random()*0.15)})`;
-        ctx.fillStyle = btnCol;
-        ctx.strokeStyle = btnCol;
-        ctx.font = 'bold 14px Share Tech Mono, monospace';
-        const btnText = '> НАЖМИТЕ ДЛЯ ВЫЕЗДА <';
-        const btw = ctx.measureText(btnText).width;
-        ctx.fillText(btnText, cx - btw/2, ry + 85);
-        ctx.strokeRect(rx + 16, ry + 68, rw - 32, 30);
-
-        holoZone = { x1: rx, y1: ry, x2: rx + rw, y2: ry + rh };
-    }
+    for (let i = 0; i < 512; i++) this.p[i] = perm[i & 255];
+  }
+  fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+  lerp(a, b, t) { return a + t * (b - a); }
+  grad(hash, x, y, z) {
+    const h = hash & 15;
+    const u = h < 8 ? x : y;
+    const v = h < 4 ? y : (h === 12 || h === 14 ? x : z);
+    return ((h & 1) === 0 ? u : -u) + ((h & 2) === 0 ? v : -v);
+  }
+  noise(x, y, z) {
+    const X = Math.floor(x) & 255, Y = Math.floor(y) & 255, Z = Math.floor(z) & 255;
+    x -= Math.floor(x); y -= Math.floor(y); z -= Math.floor(z);
+    const u = this.fade(x), v = this.fade(y), w = this.fade(z);
+    const p = this.p;
+    const A = p[X] + Y, AA = p[A] + Z, AB = p[A + 1] + Z;
+    const B = p[X + 1] + Y, BA = p[B] + Z, BB = p[B + 1] + Z;
+    return this.lerp(
+      this.lerp(this.lerp(this.grad(p[AA], x, y, z), this.grad(p[BA], x-1, y, z), u),
+                this.lerp(this.grad(p[AB], x, y-1, z), this.grad(p[BB], x-1, y-1, z), u), v),
+      this.lerp(this.lerp(this.grad(p[AA+1], x, y, z-1), this.grad(p[BA+1], x-1, y, z-1), u),
+                this.lerp(this.grad(p[AB+1], x, y-1, z-1), this.grad(p[BB+1], x-1, y-1, z-1), u), v), w);
+  }
 }
 
-// ════════════════════════════════════════════════
-//  MATRIX CITY BACKGROUND
-// ════════════════════════════════════════════════
-let cityColumns = [];
-function initCity() {
-    cityColumns = [];
-    const colW = 14;
-    const cols = Math.floor(canvas.width / colW);
-    const seed = tgUserId;
-    // pseudo-random heights per column
-    for (let i = 0; i < cols; i++) {
-        const h = 60 + ((seed * (i + 1) * 6271 + 3) % 120);
-        cityColumns.push({ x: i * colW, h, scroll: Math.random() * 1000 });
-    }
-}
-initCity();
+const perlin = new Perlin();
 
-const IP_CHARS = '0123456789ABCDEF.:█▓▒░ │';
-
-function drawCity(dt) {
-    // Very faint columns of IP/log text
-    ctx.font = '11px Share Tech Mono, monospace';
-    const now = Date.now();
-    cityColumns.forEach(col => {
-        col.scroll += dt * 0.02;
-        for (let row = 0; row < 20; row++) {
-            const ch = IP_CHARS[Math.floor((col.scroll + row * 7 + col.x) % IP_CHARS.length)];
-            const y = canvas.height - col.h + row * 11 + (col.scroll % 11);
-            if (y < canvas.height - 20) {
-                ctx.globalAlpha = 0.07 + (row / 20) * 0.03;
-                ctx.fillStyle = '#00f0ff';
-                ctx.fillText(ch, col.x, y);
-            }
-        }
-    });
-    ctx.globalAlpha = 1;
-}
-
-// ════════════════════════════════════════════════
-//  DUST PARTICLES
-// ════════════════════════════════════════════════
-let particles = [];
-function spawnDust(count) {
-    for (let i = 0; i < count; i++) {
-        particles.push({
-            x: Math.random() * canvas.width,
-            y: Math.random() * canvas.height,
-            vx: (0.8 + Math.random() * 1.5) * (Math.random() > 0.5 ? 1 : -1),
-            vy: (Math.random() - 0.5) * 0.4,
-            size: 0.5 + Math.random() * 2,
-            life: 1.0,
-            decay: 0.002 + Math.random() * 0.004,
-        });
-    }
-}
-
-function updateDust(dt) {
-    const intensity = currentWeather.dustIntensity;
-    if (intensity > 0 && Math.random() < intensity * 0.4) spawnDust(2);
-
-    particles = particles.filter(p => p.life > 0);
-    particles.forEach(p => {
-        p.x += p.vx * dt * 0.15 * intensity;
-        p.y += p.vy * dt * 0.15;
-        p.life -= p.decay;
-    });
-}
-
-function drawDust() {
-    particles.forEach(p => {
-        ctx.globalAlpha = p.life * 0.5 * currentWeather.dustIntensity;
-        ctx.fillStyle = '#c8a060';
-        ctx.beginPath();
-        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-        ctx.fill();
-    });
-    ctx.globalAlpha = 1;
-}
-
-// ════════════════════════════════════════════════
-//  DEBRIS (falling trash)
-// ════════════════════════════════════════════════
-const TRASH_CHARS = ['&', '%', '*', '#', '§', '@', '!', '~', '^'];
-let debris = [];
-
-function spawnDebris() {
-    if (debris.length > 25) return;
-    debris.push({
-        x: Math.random() * canvas.width,
-        y: -20,
-        vy: 0.5 + Math.random() * 1.5,
-        char: TRASH_CHARS[Math.floor(Math.random() * TRASH_CHARS.length)],
-        col: 0,    // column index
-        life: 1.0,
-        picked: false,
-        isCassette: Math.random() < 0.12,  // 12% chance = cassette
-    });
-}
-
-function updateDebris(dt) {
-    if (Math.random() < 0.04) spawnDebris();
-    debris.forEach(d => {
-        if (!d.picked) {
-            d.y += d.vy * dt * 0.08;
-            // wrap
-            if (d.y > canvas.height + 20) {
-                d.y = -20;
-                d.x = Math.random() * canvas.width;
-                d.isCassette = Math.random() < 0.12;
-            }
-        }
-    });
-    debris = debris.filter(d => d.life > 0);
-}
-
-function drawDebris() {
-    ctx.font = '14px Share Tech Mono, monospace';
-    debris.forEach(d => {
-        if (d.picked) return;
-        if (d.isCassette) {
-            // Glow for cassettes
-            ctx.globalAlpha = 0.9;
-            ctx.fillStyle = '#a855f7';
-            ctx.shadowColor = '#a855f7';
-            ctx.shadowBlur = 12;
-            ctx.fillText('📼', d.x, d.y);
-            ctx.shadowBlur = 0;
-        } else {
-            ctx.globalAlpha = 0.6;
-            ctx.fillStyle = '#4a6080';
-            ctx.fillText(d.char, d.x, d.y);
-        }
-        ctx.globalAlpha = 1;
-    });
-}
-
-// ════════════════════════════════════════════════
-//  ROBOT PASHA
-// ════════════════════════════════════════════════
-let pasha = {
-    x: 0, y: 0,
-    col: 0,      // column in matrix grid
-    colW: 28,    // width per column
-    cols: 0,
-    moving: false,
-    targetX: 0,
-    frame: 0,    // animation frame
-    // Camera exit animation
-    exitAnim: 0,    // 0–1
-    exitPhase: false,
+// Храним все объекты для коллизий и сбора
+let worldObjects = {
+  trees: [],
+  fences: [],
+  mushrooms: [],
+  enemies: []
 };
 
-function initPasha() {
-    pasha.cols = Math.floor(canvas.width / pasha.colW);
-    pasha.col  = Math.floor(pasha.cols / 2);
-    pasha.x    = pasha.col * pasha.colW + pasha.colW / 2;
-    pasha.y    = canvas.height * 0.68;
-    pasha.targetX = pasha.x;
-}
-initPasha();
+// Функция генерации чанка (размер 20x20) с центром в (cx, cz)
+function generateChunk(cx, cz) {
+  const chunkSize = 20;
+  const step = 0.3;
+  const half = chunkSize/2;
+  // Создаём группу для чанка
+  const chunkGroup = new THREE.Group();
+  chunkGroup.position.set(cx, 0, cz);
 
-const PASHA_FRAMES = ['[o_o]', '[o-o]', '[o_o]', '[-o-]'];
+  // Материалы
+  const groundMat = new THREE.MeshStandardMaterial({ color:0x0a1a0a, roughness:0.9, metalness:0.0 });
+  const treeMat = new THREE.MeshStandardMaterial({ color:0x2a5a2a, roughness:0.7 });
+  const fenceMat = new THREE.MeshStandardMaterial({ color:0x1a2a1a, roughness:0.8 });
+  const mushroomMat = new THREE.MeshStandardMaterial({ color:0x00ff41, emissive:0x00ff41, emissiveIntensity:0.3 });
 
-function updatePasha(dt) {
-    pasha.frame += dt * 0.005;
-    const frameStr = PASHA_FRAMES[Math.floor(pasha.frame) % PASHA_FRAMES.length];
+  // Генерируем карту высот
+  const heightMap = [];
+  for (let x = -half; x <= half; x += step) {
+    for (let z = -half; z <= half; z += step) {
+      const wx = cx + x, wz = cz + z;
+      let h = perlin.noise(wx * 0.08, wz * 0.08, 0) * 0.8;
+      // Второй слой для создания островов (перепады)
+      h += perlin.noise(wx * 0.15, wz * 0.15, 1) * 0.3;
+      // Порог для суши: h > -0.1
+      const isLand = h > -0.1;
+      heightMap.push({x, z, h, isLand});
+    }
+  }
 
-    // Smooth slide left/right
-    const dx = pasha.targetX - pasha.x;
-    pasha.x += dx * Math.min(1, dt * 0.01);
+  // Рисуем землю (просто большой плоский прямоугольник с текстурой? — используем сетку примитивов)
+  // Для упрощения используем один меш земли на чанк, но он не будет учитывать перепады.
+  // Чтобы сэкономить, просто создадим плоскость с подложкой травы.
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(chunkSize, chunkSize), groundMat);
+  ground.rotation.x = -Math.PI/2;
+  ground.position.set(0, -0.05, 0);
+  ground.receiveShadow = true;
+  chunkGroup.add(ground);
 
-    return frameStr;
-}
+  // Добавляем острова как отдельные плитки (повышенные участки)
+  // Для простоты используем кубы с разной высотой
+  const tileSize = 1.2;
+  for (let x = -half; x <= half; x += tileSize) {
+    for (let z = -half; z <= half; z += tileSize) {
+      const wx = cx + x, wz = cz + z;
+      const h = perlin.noise(wx * 0.08, wz * 0.08, 0) * 0.8 + perlin.noise(wx * 0.15, wz * 0.15, 1) * 0.3;
+      if (h > -0.05) {
+        const height = Math.max(0.1, h * 0.8 + 0.2);
+        const tile = new THREE.Mesh(
+          new THREE.BoxGeometry(tileSize*0.9, height, tileSize*0.9),
+          new THREE.MeshStandardMaterial({ color: 0x1a3a1a, roughness:0.8 })
+        );
+        tile.position.set(x, height/2 - 0.05, z);
+        tile.castShadow = true;
+        tile.receiveShadow = true;
+        chunkGroup.add(tile);
 
-function drawPasha(frameStr) {
-    const px = pasha.x;
-    const py = pasha.y;
-
-    // Glow
-    ctx.shadowColor = '#00f0ff';
-    ctx.shadowBlur  = 16;
-    ctx.fillStyle   = '#00f0ff';
-    ctx.font        = '16px Share Tech Mono, monospace';
-    const tw = ctx.measureText(frameStr).width;
-    ctx.fillText(frameStr, px - tw/2, py);
-
-    // Caterpillar tracks
-    ctx.font = '10px Share Tech Mono, monospace';
-    ctx.fillStyle = '#00cc88';
-    ctx.shadowBlur = 6;
-    const trackStr = '═══╡' + (Math.floor(pasha.frame * 2) % 2 === 0 ? '◄' : '◀') + '╞═══';
-    const tracktw  = ctx.measureText(trackStr).width;
-    ctx.fillText(trackStr, px - tracktw/2, py + 14);
-
-    ctx.shadowBlur = 0;
-}
-
-// ════════════════════════════════════════════════
-//  MUSHROOM (MYCELIUM)
-// ════════════════════════════════════════════════
-let mushroom = null;
-let mushroomCollected = false;
-
-function spawnMushroom() {
-    mushroom = {
-        x: canvas.width * 0.3 + Math.random() * canvas.width * 0.4,
-        y: canvas.height * 0.4 + Math.random() * 0.2 * canvas.height,
-        pulse: 0,
-    };
-    addLog('[ СИГНАЛ ] Мицелий обнаружен. Следуй за тоном...', 'tape');
-}
-
-function drawMushroom(dt) {
-    if (!mushroom || mushroomCollected) return;
-    mushroom.pulse += dt * 0.005;
-    const scale = 1 + Math.sin(mushroom.pulse) * 0.15;
-    const a     = 0.7 + Math.sin(mushroom.pulse * 2) * 0.3;
-
-    ctx.save();
-    ctx.translate(mushroom.x, mushroom.y);
-    ctx.scale(scale, scale);
-    ctx.globalAlpha = a;
-    ctx.shadowColor = '#00ff66';
-    ctx.shadowBlur  = 24;
-    ctx.font = '32px serif';
-    ctx.fillText('🍄', -16, 16);
-    ctx.shadowBlur = 0;
-    ctx.globalAlpha = 1;
-    ctx.restore();
-
-    // Distance check – proximity hum
-    const dx = pasha.x - mushroom.x;
-    const dy = pasha.y - mushroom.y;
-    const dist = Math.sqrt(dx*dx + dy*dy);
-    const humVol = Math.max(0, 1 - dist / (canvas.width * 0.5)) * 0.12;
-    startCassetteHum(humVol);
-
-    if (dist < 45 && !mushroomCollected) collectMushroom();
-}
-
-function collectMushroom() {
-    mushroomCollected = true;
-    mushroom = null;
-    playCassetteSound();
-    addLog('[ !!!! ] ГРИБ МИЦЕЛИЯ ПОЛУЧЕН. Этап 1 завершён.', 'ok');
-    setTimeout(() => enterFinish(), 2500);
-}
-
-// ════════════════════════════════════════════════
-//  COLLECTION LOGIC
-// ════════════════════════════════════════════════
-function checkPickups() {
-    if (mushroomCollected) return;
-    debris.forEach(d => {
-        if (d.picked) return;
-        const dx = pasha.x - d.x;
-        const dy = pasha.y - d.y;
-        if (Math.abs(dx) < 28 && Math.abs(dy) < 28) {
-            d.picked = true;
-            if (d.isCassette && collectedCassettes < 5) {
-                collectedCassettes++;
-                const slogan = SLOGANS[Math.floor(Math.random() * SLOGANS.length)];
-                if (!collectedSlogans.includes(slogan)) collectedSlogans.push(slogan);
-                playCassetteSound();
-                updateCassetteDisplay();
-                addLog(`📼 КАССЕТА ${collectedCassettes}/5: "${slogan}"`, 'tape');
-                if (collectedCassettes >= 5 && !mushroom && !mushroomCollected) {
-                    setTimeout(spawnMushroom, 1500);
-                }
-            } else if (!d.isCassette) {
-                if (Math.random() < 0.3) playThud();
-                // Slight battery recharge from recycling
-                battery = Math.min(1, battery + 0.005);
-            }
+        // Размещаем деревья на островах (вероятность)
+        if (Math.random() < 0.12 && height > 0.4) {
+          const tree = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.25, 0.5 + Math.random()*0.3, 4), treeMat);
+          tree.position.set(x + (Math.random()-0.5)*0.6, height + 0.25, z + (Math.random()-0.5)*0.6);
+          tree.castShadow = true;
+          chunkGroup.add(tree);
+          worldObjects.trees.push(tree);
         }
-    });
-}
-
-function updateCassetteDisplay() {
-    document.getElementById('cassettesDisplay').textContent = `📼 ${collectedCassettes}/5`;
-}
-
-// ════════════════════════════════════════════════
-//  HUD – time display
-// ════════════════════════════════════════════════
-function getGameTimeStr() {
-    if (!gameStartTime) return '00:00';
-    const elapsed = Date.now() - gameStartTime;
-    const cycleMs = elapsed % REAL_CYCLE_MS;
-    const fraction = cycleMs / REAL_CYCLE_MS;
-    const totalGameMins = Math.floor(fraction * 1440);
-    const gh = Math.floor(totalGameMins / 60);
-    const gm = totalGameMins % 60;
-    return `${String(gh).padStart(2,'0')}:${String(gm).padStart(2,'0')}`;
-}
-
-// ════════════════════════════════════════════════
-//  PHASE TRANSITIONS
-// ════════════════════════════════════════════════
-function enterWork() {
-    gameState = STATE.WORK;
-    gameStartTime    = Date.now();
-    batteryStartTime = Date.now();
-    lastWeatherChange = Date.now();
-    initCity();
-    initPasha();
-    document.getElementById('statusBar').classList.remove('hidden');
-    nextWeather();
-    addLog('[ SYSTEM ] Гермозатвор открыт. Выезд в сектор...', 'ok');
-    addLog('[ INFO ] Собери 5 кассет, чтобы найти Мицелий.', 'info');
-}
-
-function enterStandby() {
-    gameState = STATE.STANDBY;
-    setWindIntensity(0);
-    document.getElementById('standbyOverlay').classList.add('visible');
-    addLog('[ BATTERY ] Заряд 0%. Режим STANDBY.', 'error');
-    // Auto-resume after 60 real seconds (simulate "morning")
-    const resumeAt = Date.now() + 60000;
-    const timer = setInterval(() => {
-        const left = Math.max(0, Math.ceil((resumeAt - Date.now()) / 1000));
-        document.getElementById('standbyTimer').textContent =
-            `Зарядка начнётся через: ${left}с`;
-        if (left <= 0) {
-            clearInterval(timer);
-            battery = 0.4;
-            gameState = STATE.WORK;
-            batteryStartTime = Date.now();
-            document.getElementById('standbyOverlay').classList.remove('visible');
-            nextWeather();
-            addLog('[ SOLAR ] Заряд восстановлен. Продолжаем!', 'ok');
+        // Размещаем заборы (на границах островов) — упрощённо: просто линии из кубов
+        if (Math.random() < 0.05 && height > 0.3) {
+          const fence = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.3, 0.08), fenceMat);
+          fence.position.set(x + (Math.random()-0.5)*0.8, height + 0.15, z + (Math.random()-0.5)*0.8);
+          fence.castShadow = true;
+          chunkGroup.add(fence);
+          worldObjects.fences.push(fence);
         }
-    }, 1000);
+        // Размещаем грибы (мицелий) — цель сбора
+        if (Math.random() < 0.04 && height > 0.2) {
+          const mush = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.3, 0.4, 6), mushroomMat);
+          mush.position.set(x + (Math.random()-0.5)*0.5, height + 0.2, z + (Math.random()-0.5)*0.5);
+          mush.castShadow = true;
+          chunkGroup.add(mush);
+          worldObjects.mushrooms.push({ mesh: mush, collected: false });
+        }
+      }
+    }
+  }
+
+  // Добавляем врагов (крипов) — они появляются редко и будут преследовать
+  if (Math.random() < 0.03) {
+    const enemyMat = new THREE.MeshStandardMaterial({ color: 0xff3333, emissive:0xff0000, emissiveIntensity:0.2 });
+    const enemy = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.2, 0.8), enemyMat);
+    const ex = (Math.random()-0.5)*chunkSize*0.8;
+    const ez = (Math.random()-0.5)*chunkSize*0.8;
+    const h = perlin.noise((cx+ex)*0.08, (cz+ez)*0.08, 0)*0.8 + perlin.noise((cx+ex)*0.15, (cz+ez)*0.15, 1)*0.3;
+    const yPos = Math.max(0.1, h*0.8+0.2) + 0.6;
+    enemy.position.set(ex, yPos, ez);
+    enemy.castShadow = true;
+    chunkGroup.add(enemy);
+    worldObjects.enemies.push(enemy);
+  }
+
+  scene.add(chunkGroup);
+  return chunkGroup;
 }
 
-function enterFinish() {
-    gameState = STATE.FINISH;
-    document.getElementById('overlay').classList.add('visible');
+// Управление чанками (простая система)
+let chunkMap = {};
+let loadedChunks = [];
+
+function getChunkKey(cx, cz) {
+  return `${Math.round(cx/20)},${Math.round(cz/20)}`;
 }
 
-// ════════════════════════════════════════════════
-//  SHARE BUTTON
-// ════════════════════════════════════════════════
-document.getElementById('shareBtn').addEventListener('click', () => {
-    const slogan = collectedSlogans.length > 0
-        ? collectedSlogans[Math.floor(Math.random() * collectedSlogans.length)]
-        : 'Децентрализация — это антихрупкость духа.';
+function updateChunks(playerPos) {
+  const cx = Math.round(playerPos.x / 20) * 20;
+  const cz = Math.round(playerPos.z / 20) * 20;
+  const radius = 2; // кол-во чанков в радиусе
+  const needed = new Set();
+  for (let dx = -radius; dx <= radius; dx++) {
+    for (let dz = -radius; dz <= radius; dz++) {
+      const key = getChunkKey(cx + dx*20, cz + dz*20);
+      needed.add(key);
+      if (!chunkMap[key]) {
+        const group = generateChunk(cx + dx*20, cz + dz*20);
+        chunkMap[key] = group;
+        loadedChunks.push(group);
+      }
+    }
+  }
+  // Удаляем чанки, которые далеко
+  for (let i = loadedChunks.length - 1; i >= 0; i--) {
+    const group = loadedChunks[i];
+    const dist = Math.sqrt(group.position.x*group.position.x + group.position.z*group.position.z);
+    if (dist > 80) {
+      scene.remove(group);
+      loadedChunks.splice(i, 1);
+      // удаляем из chunkMap (не критично)
+    }
+  }
+}
 
-    const text = encodeURIComponent(
-        `🤖 Робот Паша в OMNIVERSE только что активировал Мицелий!\n\n` +
-        `📼 Кассета Свободы: «${slogan}»\n\n` +
-        `Подключайся к сети → @omniverse_game`
-    );
-    const shareUrl = `https://t.me/share/url?url=https://t.me/omniverse_game&text=${text}`;
-    window.open(shareUrl, '_blank');
+// ═══════════════════════════════════════════════════
+//  ИГРОВОЕ СОСТОЯНИЕ
+// ═══════════════════════════════════════════════════
+let playerGroup = null;
+let currentIdx = 0;
+let charGroups = {};
 
-    setTimeout(() => {
-        tg?.close?.();
-    }, 800);
+// Игрок
+const player = {
+  x: 0, y: 0, z: 0,
+  vx: 0, vy: 0, vz: 0,
+  onGround: false,
+  speed: 4,
+  jumpPower: 5,
+  gravity: -12
+};
+
+// Управление
+let moveLeft = false, moveRight = false;
+let jumpRequested = false;
+
+// Сбор
+let mushroomsCollected = 0;
+const maxMushrooms = 5;
+let gameOver = false;
+let enemy = null; // ссылка на врага
+
+// ═══════════════════════════════════════════════════
+//  СБОРКА ПЕРСОНАЖЕЙ И ИНИЦИАЛИЗАЦИЯ
+// ═══════════════════════════════════════════════════
+CHARS.forEach(def => {
+  const G = buildCharacter(def);
+  G.visible = false;
+  scene.add(G);
+  charGroups[def.id] = G;
 });
 
-// ════════════════════════════════════════════════
-//  LOG TERMINAL
-// ════════════════════════════════════════════════
-const logEl   = document.getElementById('logTerminal');
-const MAX_LOGS = 4;
+function showChar(idx) {
+  if(playerGroup) playerGroup.visible = false;
+  currentIdx = idx;
+  const def = CHARS[idx];
+  playerGroup = charGroups[def.id];
+  playerGroup.visible = true;
+  playerGroup.position.set(player.x, player.y, player.z);
+  playerGroup.rotation.set(0,0,0);
 
-function addLog(text, type = 'info') {
-    const div = document.createElement('div');
-    div.className = `log-line ${type}`;
-    div.textContent = text;
-    logEl.appendChild(div);
-    while (logEl.children.length > MAX_LOGS) logEl.removeChild(logEl.firstChild);
+  document.getElementById('char-name').textContent = def.name;
+  document.getElementById('char-lvl').textContent = `${def.lvl} · ${def.lives} · ${def.league}-ЛИГА`;
+  document.querySelectorAll('.char-btn').forEach((b,i)=>{
+    b.classList.toggle('active', i===idx);
+  });
+  keyLight.color.setHex(def.glowCol);
+  rimLight.color.setHex(def.glowCol);
 }
 
-// Intro boot messages
-const BOOT_MSGS = [
-    { t: 400,  text: '[ INFO ] Инициализация протокола OMNIVERSE...', type: 'info' },
-    { t: 1000, text: '[ OK ] Telegram WebApp внедрён.', type: 'ok' },
-    { t: 1800, text: '[ WARN ] Кластер Одессы не отвечает.', type: 'warn' },
-    { t: 2400, text: '[ OK ] Резервное зеркало установлено.', type: 'ok' },
-    { t: 3200, text: '[ READY ] Ожидание активации линз...', type: 'info' },
-];
-BOOT_MSGS.forEach(m => setTimeout(() => addLog(m.text, m.type), m.t));
+// UI
+const ui = document.getElementById('ui');
+const leagueColors = { 'SOULS':'#00FF41', 'PUBG':'#FFAA00', 'ТАНКИ':'#FF4444', 'FREE':'#44FF44', 'FREEMAN':'#FF8800' };
+CHARS.forEach((def,i) => {
+  const col = leagueColors[def.league]||'#00FF41';
+  const btn = document.createElement('div');
+  btn.className = 'char-btn';
+  btn.style.setProperty('--col', col);
+  btn.innerHTML = `
+    <div class="btn-dot" style="background:${col};box-shadow:0 0 6px ${col};"></div>
+    <div class="btn-name">${def.id==='you'?'ВЫ':def.id.split('_')[0].toUpperCase()}</div>
+    <div class="btn-class">${def.league}</div>
+  `;
+  btn.addEventListener('click', (e)=>{ e.preventDefault(); if(!gameOver) showChar(i); });
+  btn.addEventListener('touchend', (e)=>{ e.preventDefault(); if(!gameOver) showChar(i); });
+  ui.appendChild(btn);
+});
+showChar(0);
 
-// ════════════════════════════════════════════════
-//  INPUT HANDLING
-// ════════════════════════════════════════════════
-function handleTap(x, y) {
-    if (!audioCtx) initAudio();
+// ═══════════════════════════════════════════════════
+//  УПРАВЛЕНИЕ (свайпы + тап для прыжка)
+// ═══════════════════════════════════════════════════
+let touchStartX = 0, touchStartY = 0;
 
-    if (gameState === STATE.INTRO && holoZone) {
-        if (x >= holoZone.x1 && x <= holoZone.x2 && y >= holoZone.y1 && y <= holoZone.y2) {
-            if (lensOpen >= 100) {
-                playHydraulic();
-                enterWork();
-            }
-        }
-        return;
+canvas.addEventListener('touchstart', (e) => {
+  const t = e.touches[0];
+  touchStartX = t.clientX;
+  touchStartY = t.clientY;
+  // Определяем прыжок, если тап был коротким и без движения
+}, {passive: true});
+
+canvas.addEventListener('touchmove', (e) => {
+  e.preventDefault();
+  const t = e.touches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  if (Math.abs(dx) > 20) {
+    if (dx > 0) { moveRight = true; moveLeft = false; }
+    else { moveLeft = true; moveRight = false; }
+  } else {
+    moveLeft = false; moveRight = false;
+  }
+  // Если палец двигается вверх — прыжок
+  if (dy < -30) {
+    jumpRequested = true;
+  }
+}, {passive: false});
+
+canvas.addEventListener('touchend', (e) => {
+  moveLeft = false; moveRight = false;
+  // Если движение было небольшим, считаем прыжком
+  const t = e.changedTouches[0];
+  const dx = t.clientX - touchStartX;
+  const dy = t.clientY - touchStartY;
+  if (Math.abs(dx) < 30 && dy > -30) {
+    jumpRequested = true;
+  }
+}, {passive: true});
+
+// Мышь/клавиатура для ПК
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'ArrowLeft' || e.key === 'a') { moveLeft = true; moveRight = false; }
+  if (e.key === 'ArrowRight' || e.key === 'd') { moveRight = true; moveLeft = false; }
+  if (e.key === ' ' || e.key === 'w' || e.key === 'ArrowUp') { jumpRequested = true; e.preventDefault(); }
+});
+document.addEventListener('keyup', (e) => {
+  if (e.key === 'ArrowLeft' || e.key === 'a') moveLeft = false;
+  if (e.key === 'ArrowRight' || e.key === 'd') moveRight = false;
+});
+
+// ═══════════════════════════════════════════════════
+//  ИГРОВОЙ ЦИКЛ
+// ═══════════════════════════════════════════════════
+const clock = new THREE.Clock();
+
+function update(dt) {
+  if (gameOver) return;
+
+  // Управление
+  let accel = 0;
+  if (moveLeft) accel = -1;
+  if (moveRight) accel = 1;
+  player.vx += accel * 6 * dt;
+  player.vx *= 0.9; // трение
+  if (Math.abs(player.vx) > 4) player.vx = Math.sign(player.vx) * 4;
+  player.x += player.vx * dt;
+
+  // Гравитация
+  player.vy += player.gravity * dt;
+  player.y += player.vy * dt;
+
+  // Прыжок
+  if (jumpRequested && player.onGround) {
+    player.vy = player.jumpPower;
+    player.onGround = false;
+  }
+  jumpRequested = false;
+
+  // Проверка земли (коллизия с островами — упрощённо, считаем что земля на y=0)
+  // Здесь нужно проверять высоту ландшафта, но для простоты используем плоскую поверхность с небольшими возвышениями.
+  // Вместо сложной физики просто ограничим y>=0.
+  if (player.y < 0) {
+    player.y = 0;
+    player.vy = 0;
+    player.onGround = true;
+  }
+
+  // Автоматическое движение вперёд (по оси Z) — как в раннере
+  player.z += 4 * dt;
+
+  // Ограничение по X (чтобы не уйти далеко)
+  if (player.x > 8) player.x = 8;
+  if (player.x < -8) player.x = -8;
+
+  // Обновление чанков
+  updateChunks(player);
+
+  // Проверка сбора грибов
+  for (let i = worldObjects.mushrooms.length - 1; i >= 0; i--) {
+    const m = worldObjects.mushrooms[i];
+    if (m.collected) continue;
+    const dx = player.x - (m.mesh.position.x + m.mesh.parent.position.x); // parent это chunkGroup
+    const dz = player.z - (m.mesh.position.z + m.mesh.parent.position.z);
+    if (Math.sqrt(dx*dx + dz*dz) < 1.2) {
+      m.collected = true;
+      scene.remove(m.mesh); // удаляем из группы? проще скрыть
+      m.mesh.visible = false;
+      mushroomsCollected++;
+      document.getElementById('cassette-hud').textContent = `🍄 ${mushroomsCollected}/${maxMushrooms}`;
+      if (mushroomsCollected >= maxMushrooms) {
+        gameOver = true;
+        showOverlay(true);
+      }
     }
+  }
 
-    if (gameState === STATE.WORK) {
-        if (x < canvas.width / 2) {
-            pasha.col = Math.max(0, pasha.col - 1);
-        } else {
-            pasha.col = Math.min(pasha.cols - 1, pasha.col + 1);
-        }
-        pasha.targetX = pasha.col * pasha.colW + pasha.colW / 2;
+  // Враг (преследователь) — двигается к игроку
+  if (worldObjects.enemies.length > 0) {
+    const enemy = worldObjects.enemies[0];
+    const dx = player.x - (enemy.position.x + enemy.parent.position.x);
+    const dz = player.z - (enemy.position.z + enemy.parent.position.z);
+    const dist = Math.sqrt(dx*dx + dz*dz);
+    if (dist > 1.5) {
+      const speed = 1.2;
+      enemy.position.x += (dx / dist) * speed * dt;
+      enemy.position.z += (dz / dist) * speed * dt;
     }
+    // Проверка столкновения с игроком
+    if (dist < 1.0) {
+      gameOver = true;
+      showOverlay(false);
+    }
+  }
+
+  // Обновление позиции игрока
+  if (playerGroup) {
+    playerGroup.position.set(player.x, player.y, player.z);
+    playerGroup.rotation.z = -player.vx * 0.05;
+    // Анимация бега
+    const runCycle = Math.sin(performance.now() / 150);
+    playerGroup.legLGroup.rotation.x = runCycle * 0.4;
+    playerGroup.legRGroup.rotation.x = -runCycle * 0.4;
+    playerGroup.armLGroup.rotation.x = -runCycle * 0.4;
+    playerGroup.armRGroup.rotation.x = runCycle * 0.4;
+    if (!player.onGround) {
+      // анимация прыжка
+      playerGroup.legLGroup.rotation.x = -0.3;
+      playerGroup.legRGroup.rotation.x = -0.3;
+    }
+    // Подсветка под ногами
+    playerGroup.circleMat.opacity = 0.2 + Math.sin(performance.now()/300)*0.1;
+  }
+
+  // Камера следует за игроком
+  camera.position.x += (player.x - camera.position.x) * 2 * dt;
+  camera.position.z += (player.z - 8 - camera.position.z) * 2 * dt;
+  camera.lookAt(player.x, player.y+1, player.z-4);
+
+  // Частицы двигаются
+  const pos = particles.geometry.attributes.position;
+  for (let i=0; i<pCount; i++) {
+    pos.array[i*3+2] += 2 * dt;
+    if (pos.array[i*3+2] > 10) {
+      pos.array[i*3+2] = -50;
+      pos.array[i*3] = (Math.random()-0.5)*40;
+      pos.array[i*3+1] = Math.random()*6 + 1;
+    }
+  }
+  pos.needsUpdate = true;
 }
 
-canvas.addEventListener('touchstart', e => {
-    e.preventDefault();
-    const t = e.touches[0];
-    handleTap(t.clientX, t.clientY);
-}, { passive: false });
-
-canvas.addEventListener('click', e => handleTap(e.clientX, e.clientY));
-
-// ════════════════════════════════════════════════
-//  MAIN LOOP
-// ════════════════════════════════════════════════
-let lastTime = 0;
-
-function loop(ts) {
-    const dt = Math.min(ts - lastTime, 80); // cap at 80ms to avoid huge jumps
-    lastTime = ts;
-
-    // Clear
-    ctx.fillStyle = '#05070a';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    if (gameState === STATE.INTRO) {
-        drawIntro(dt);
-
-    } else if (gameState === STATE.WORK) {
-        // Weather tick
-        if (Date.now() - lastWeatherChange > WEATHER_MS) {
-            lastWeatherChange = Date.now();
-            nextWeather();
-        }
-
-        updateBattery(dt);
-        updateDust(dt);
-        updateDebris(dt);
-        const frameStr = updatePasha(dt);
-
-        // Draw layers
-        drawCity(dt);
-        drawDust();
-        drawDebris();
-        drawPasha(frameStr);
-        if (mushroom) drawMushroom(dt);
-        checkPickups();
-
-        // HUD time overlay
-        ctx.fillStyle = 'rgba(0,240,255,0.25)';
-        ctx.font = '10px Share Tech Mono, monospace';
-        ctx.fillText(`ИГРОВОЕ ВРЕМЯ ${getGameTimeStr()}`, canvas.width/2 - 70, canvas.height * 0.95);
-
-    } else if (gameState === STATE.STANDBY || gameState === STATE.FINISH) {
-        // Just draw static city in background
-        drawCity(dt);
-    }
-
-    requestAnimationFrame(loop);
+function showOverlay(isWin) {
+  const overlay = document.getElementById('game-overlay');
+  const title = document.getElementById('overlay-header');
+  const desc = document.getElementById('overlay-desc');
+  if (isWin) {
+    title.textContent = "СИНХРОНИЗАЦИЯ СЕТИ";
+    desc.textContent = `Архитектура распределенного Мицелия развернута успешно! Грибы собраны. Персонаж Лиги ${playerGroup._def.league} подключен к ядру OMNIVERSE.`;
+  } else {
+    title.textContent = "ПОТЕРЯ СИГНАЛА";
+    desc.textContent = "Вас настиг крип. Попробуйте снова, уклоняйтесь и собирайте грибы.";
+  }
+  overlay.style.display = 'flex';
 }
 
-requestAnimationFrame(ts => { lastTime = ts; requestAnimationFrame(loop); });
+function resetGame() {
+  document.getElementById('game-overlay').style.display = 'none';
+  // Сброс состояния
+  player.x = 0; player.y = 0; player.z = 0;
+  player.vx = 0; player.vy = 0;
+  player.onGround = false;
+  mushroomsCollected = 0;
+  document.getElementById('cassette-hud').textContent = `🍄 0/${maxMushrooms}`;
+  gameOver = false;
+  // Очистка мира
+  for (let key in chunkMap) {
+    scene.remove(chunkMap[key]);
+  }
+  chunkMap = {};
+  loadedChunks = [];
+  worldObjects = { trees: [], fences: [], mushrooms: [], enemies: [] };
+  // Генерация начального чанка
+  updateChunks(player);
+}
+
+// ═══════════════════════════════════════════════════
+//  ЗАПУСК
+// ═══════════════════════════════════════════════════
+// Генерируем начальный мир
+updateChunks(player);
+
+// Анимационный цикл
+function animate() {
+  requestAnimationFrame(animate);
+  const dt = Math.min(clock.getDelta(), 0.05);
+  update(dt);
+  renderer.render(scene, camera);
+}
+animate();
+
+// Resize
+addEventListener('resize',()=>{
+  camera.aspect=W()/H();
+  camera.updateProjectionMatrix();
+  renderer.setSize(W(),H());
+});
+
 </script>
 </body>
 </html>
