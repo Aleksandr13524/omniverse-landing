@@ -6,55 +6,116 @@
     <title>Omniverse Terminal</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <style>
+        @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap');
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
             background-color: #05070a;
             color: #00f0ff;
-            font-family: 'Courier New', Courier, monospace;
-            margin: 0;
-            padding: 20px;
-            box-sizing: border-box;
+            font-family: 'Share Tech Mono', 'Courier New', monospace;
             overflow: hidden;
             user-select: none;
             -webkit-user-select: none;
+            height: 100vh;
+            width: 100vw;
         }
 
-        /* Эффект старого ЭЛТ-монитора */
+        /* Matrix canvas */
+        #matrixCanvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: 0;
+            opacity: 0.18;
+        }
+
+        /* CRT scanlines overlay */
         body::after {
             content: " ";
             display: block;
             position: fixed;
             top: 0; left: 0; bottom: 0; right: 0;
-            background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
-            z-index: 2;
+            background: linear-gradient(rgba(18,16,16,0) 50%, rgba(0,0,0,0.22) 50%),
+                        linear-gradient(90deg, rgba(255,0,0,0.04), rgba(0,255,0,0.02), rgba(0,0,255,0.04));
+            z-index: 10;
             background-size: 100% 2px, 3px 100%;
             pointer-events: none;
         }
 
         .terminal {
+            position: relative;
+            z-index: 5;
             display: flex;
             flex-direction: column;
-            height: 90vh;
-            justify-content: flex-start;
+            align-items: center;
+            height: 100vh;
+            padding: 30px 20px 20px;
+        }
+
+        /* OMNIVERSE logo */
+        .logo-wrap {
+            margin-bottom: 6px;
+            text-align: center;
+        }
+
+        .logo {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: clamp(32px, 10vw, 52px);
+            letter-spacing: 0.12em;
+            background: linear-gradient(90deg,
+                #00f0ff 0%,
+                #a855f7 30%,
+                #00f0ff 50%,
+                #a855f7 70%,
+                #00f0ff 100%);
+            background-size: 200% auto;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            animation: shimmer 3s linear infinite;
+            filter: drop-shadow(0 0 18px rgba(0,240,255,0.5));
+        }
+
+        @keyframes shimmer {
+            0%   { background-position: 0% center; }
+            100% { background-position: 200% center; }
+        }
+
+        .subtitle {
+            font-size: 11px;
+            letter-spacing: 0.25em;
+            color: #a855f7;
+            text-shadow: 0 0 8px #a855f7;
+            margin-bottom: 4px;
+            text-align: center;
         }
 
         .header {
-            text-shadow: 0 0 10px #00f0ff;
+            font-size: 11px;
+            color: #00f0ff;
+            text-shadow: 0 0 8px #00f0ff;
             font-weight: bold;
-            margin-bottom: 20px;
-            border-bottom: 1px dashed #00f0ff;
+            margin-bottom: 18px;
+            border-bottom: 1px dashed rgba(0,240,255,0.4);
             padding-bottom: 10px;
+            width: 100%;
+            text-align: center;
+            letter-spacing: 0.05em;
         }
 
         .logs {
-            font-size: 14px;
-            line-height: 1.5;
+            font-size: 13px;
+            line-height: 1.6;
+            width: 100%;
             flex-grow: 1;
         }
 
         .log-line {
             opacity: 0;
-            margin-bottom: 8px;
-            animation: fadeIn 0.3s forwards;
+            margin-bottom: 7px;
+            animation: fadeIn 0.4s forwards;
         }
 
         .accent {
@@ -70,7 +131,7 @@
         .cursor {
             display: inline-block;
             width: 8px;
-            height: 15px;
+            height: 14px;
             background-color: #00f0ff;
             animation: blink 1s infinite;
             vertical-align: middle;
@@ -89,48 +150,83 @@
 </head>
 <body>
 
-    <div class="terminal">
-        <div class="header">
-            === OMNIVERSE CORE TERMINAL v0.4.2 ===<br>
-            SECURITY LEVEL: CLASSIFIED
-        </div>
-        <div class="logs" id="logContainer">
-            </div>
+<canvas id="matrixCanvas"></canvas>
+
+<div class="terminal">
+    <div class="logo-wrap">
+        <div class="logo">OMNIVERSE</div>
     </div>
+    <div class="subtitle">TELEGRAM MINI APP · MULTIVERSE MMO</div>
+    <div class="header">
+        === CORE TERMINAL v0.4.2 · SECURITY LEVEL: CLASSIFIED ===
+    </div>
+    <div class="logs" id="logContainer"></div>
+</div>
 
-    <script>
-        // Инициализация Telegram WebApp
-        const tg = window.Telegram.WebApp;
-        tg.ready();
-        tg.expand(); // Расширяет окно на максимум
+<script>
+    // Telegram WebApp init
+    const tg = window.Telegram?.WebApp;
+    if (tg) { tg.ready(); tg.expand(); tg.setHeaderColor('#05070a'); }
 
-        // Настройка цветов темы TG (опционально)
-        tg.setHeaderColor('#05070a');
+    // === MATRIX RAIN ===
+    const canvas = document.getElementById('matrixCanvas');
+    const ctx = canvas.getContext('2d');
 
-        const logs = [
-            { text: "[ INFO ] Инициализация протокола связи с Omniverse...", delay: 200 },
-            { text: "[ OK ] Скрипт Telegram WebApp успешно внедрен.", delay: 600, type: "success" },
-            { text: "[ WARN ] Локальный вычислительный кластер не отвечает.", delay: 1200, type: "accent" },
-            { text: "[ INFO ] Переключение на резервный статический узел хранения...", delay: 1700 },
-            { text: "[ OK ] Соединение со статическим зеркалом GitHub установлено.", delay: 2300, type: "success" },
-            { text: "[ INFO ] Синхронизация игровых механик (Minecraft-core)...", delay: 3000 },
-            { text: "[ STATUS ] РЕЖИМ ОЖИДАНИЯ: Развертывание бэкенда.", delay: 3800 },
-            { text: ">> Идет настройка GPU-серверов. Агенты компилируют окружение...", delay: 4500 },
-            { text: ">> Пожалуйста, вернитесь позже. Сеть будет активна в ближайшее время.", delay: 5200 },
-            { text: "[ READY ] Терминал переведен в режим мониторинга. Ожидание хоста... <span class='cursor'></span>", delay: 6000 }
-        ];
+    const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789@#$%&';
+    let cols, drops;
 
-        const container = document.getElementById('logContainer');
+    function initMatrix() {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        const fontSize = 14;
+        cols = Math.floor(canvas.width / fontSize);
+        drops = Array(cols).fill(1);
+    }
 
-        logs.forEach(log => {
-            setTimeout(() => {
-                const line = document.createElement('div');
-                line.className = 'log-line';
-                if (log.type) line.classList.add(log.type);
-                line.innerHTML = log.text;
-                container.appendChild(line);
-            }, log.delay);
-        });
-    </script>
+    function drawMatrix() {
+        ctx.fillStyle = 'rgba(5, 7, 10, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#00f0ff';
+        ctx.font = '14px Share Tech Mono, monospace';
+        for (let i = 0; i < drops.length; i++) {
+            const char = chars[Math.floor(Math.random() * chars.length)];
+            ctx.fillStyle = Math.random() > 0.95 ? '#ffffff' : '#00f0ff';
+            ctx.globalAlpha = Math.random() * 0.5 + 0.3;
+            ctx.fillText(char, i * 14, drops[i] * 14);
+            if (drops[i] * 14 > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+        }
+        ctx.globalAlpha = 1;
+    }
+
+    initMatrix();
+    window.addEventListener('resize', initMatrix);
+    setInterval(drawMatrix, 50);
+
+    // === TERMINAL LOGS ===
+    const logs = [
+        { text: "[ INFO ] Инициализация протокола связи с Omniverse...", delay: 300 },
+        { text: "[ OK ] Скрипт Telegram WebApp успешно внедрен.", delay: 800, type: "success" },
+        { text: "[ WARN ] Локальный вычислительный кластер не отвечает.", delay: 1400, type: "accent" },
+        { text: "[ INFO ] Переключение на резервный статический узел...", delay: 1900 },
+        { text: "[ OK ] Соединение со статическим зеркалом GitHub установлено.", delay: 2500, type: "success" },
+        { text: "[ INFO ] Синхронизация игровых механик (Minecraft-core)...", delay: 3200 },
+        { text: "[ STATUS ] РЕЖИМ ОЖИДАНИЯ: Развертывание бэкенда.", delay: 4000 },
+        { text: ">> Идет настройка GPU-серверов. Агенты компилируют окружение...", delay: 4700 },
+        { text: ">> Пожалуйста, вернитесь позже. Сеть будет активна в ближайшее время.", delay: 5400 },
+        { text: "[ READY ] Терминал переведен в режим мониторинга. Ожидание хоста... <span class='cursor'></span>", delay: 6200 }
+    ];
+
+    const container = document.getElementById('logContainer');
+    logs.forEach(log => {
+        setTimeout(() => {
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            if (log.type) line.classList.add(log.type);
+            line.innerHTML = log.text;
+            container.appendChild(line);
+        }, log.delay);
+    });
+</script>
 </body>
 </html>
