@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Telegram Manifest — Автономный плеер</title>
+  <style>
+    body {
+      margin: 0;
+      background: #000;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    canvas {
+      display: block;
+      height: 100vh;
+      aspect-ratio: 9/16;
+    }
+    #ui {
+      position: fixed;
+      bottom: 20px;
+      left: 0;
+      width: 100%;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      z-index: 10;
+    }
+    button {
+      background: rgba(0,255,102,0.1);
+      border: 1px solid #00ff66;
+      color: #00ff66;
+      padding: 10px 14px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      cursor: pointer;
+      border-radius: 4px;
+      backdrop-filter: blur(4px);
+    }
+    button:active {
+      background: #00ff66;
+      color: #000;
+    }
+    #status {
+      position: fixed;
+      top: 20px;
+      left: 0;
+      width: 100%;
+      text-align: center;
+      color: #00ff66;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      z-index: 10;
+      text-shadow: 0 0 8px #00ff66;
+    }
+    #download-btn {
+      position: fixed;
+      top: 50px;
+      right: 20px;
+      font-size: 10px;
+      z-index: 11;
+      display: none; /* показывается после завершения, если запись активна */
+    }
+  </style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="status">Выбери серию для просмотра</div>
+<button id="download-btn" style="display:none;">⬇ Скачать видео</button>
+<div id="ui">
+  <button data-series="1">1. Чат-контроль</button>
+  <button data-series="2">2. Суверенитет</button>
+  <button data-series="3">3. Память ИИ</button>
+  <button data-series="4">4. Код на ведрах</button>
+  <button data-series="5">5. Религия RAM</button>
+  <button data-series="6">6. Анатомия пакета</button>
+  <button data-series="7">7. Избир. закон</button>
+  <button data-series="8">8. Алгоритм. рабство</button>
+  <button data-series="9">9. Последний узел</button>
+</div>
+
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script>
+// ========== ИНИЦИАЛИЗАЦИЯ ==========
+window.userNick = (() => {
+  try {
+    const u = window.Telegram?.WebApp?.initDataUnsafe?.user;
+    return u?.username ? '@'+u.username : '@ANONYMOUS';
+  } catch(e) { return '@ANONYMOUS'; }
+})();
+
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = 1080, H = 1920;
+canvas.width = W; canvas.height = H;
+
+// ========== AUDIO ==========
+let audioCtx, masterGain;
+function ensureAudio() {
+  if (audioCtx) return audioCtx.state === 'suspended' ? audioCtx.resume() : Promise.resolve();
+  audioCtx = new (window.AudioContext||window.webkitAudioContext)();
+  masterGain = audioCtx.createGain();
+  masterGain.connect(audioCtx.destination);
+  return Promise.resolve();
+}
+function playBass() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+  o.type='sine'; o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(40,t+0.8);
+  g.gain.setValueAtTime(1,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.8);
+  o.connect(g); g.connect(masterGain); o.start(t); o.stop(t+0.8);
+}
+function playGlitchSfx() {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const len = audioCtx.sampleRate * 0.05;
+  const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+  const d = buf.getChannelData(0);
+  for (let i=0;i<len;i++) d[i]=(Math.random()*2-1)*0.3;
+  const s = audioCtx.createBufferSource(); s.buffer=buf;
+  const g = audioCtx.createGain(); g.gain.setValueAtTime(0.5,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.05);
+  s.connect(g); g.connect(masterGain); s.start(t);
+}
+
+// ========== СОСТОЯНИЯ ==========
+let playing=false, startTime=0, series=null, steps=[], curStep=0, dur=15;
+let cam={x:0,y:0,zoom:1,shake:0};
+let glitch=0, flash=0;
+let particles=[];
+let mediaRecorder, recordedChunks=[];
+let recordMode = false; // включится по желанию
+
+// ========== ЧАСТИЦЫ ==========
+class P {
+  constructor(x,y,vx,vy,life,c='#00ff66') {
+    this.x=x;this.y=y;this.vx=vx;this.vy=vy;this.life=life;this.max=life;this.c=c;
+  }
+  upd(dt){this.x+=this.vx*dt;this.y+=this.vy*dt;this.life-=dt;}
+  draw(ctx){
+    if(this.life<=0)return;
+    ctx.globalAlpha=this.life/this.max;
+    ctx.fillStyle=this.c;
+    ctx.fillRect(this.x,this.y,2,2);
+    ctx.globalAlpha=1;
+  }
+}
+function spawn(x,y,n,c){for(let i=0;i<n;i++){let a=Math.random()*Math.PI*2,s=20+Math.random()*80;particles.push(new P(x,y,Math.cos(a)*s,Math.sin(a)*s,0.5+Math.random()*1.5,c))}}
+
+// ========== ТРИГГЕРЫ ==========
+function impact(){cam.shake=15;cam.zoom=1.08;playBass();}
+function doGlitch(){glitch=1;playGlitchSfx();}
+function doFlash(){flash=1;}
+
+// ========== РЕНДЕРИНГ ==========
+function drawGrid(){
+  ctx.strokeStyle='rgba(0,255,102,0.07)';
+  ctx.lineWidth=1;
+  for(let y=0;y<H;y+=80) {ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+  for(let x=0;x<W;x+=80) {ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+}
+function drawText(txt,x,y){
+  if(glitch>0.01){
+    ctx.save();ctx.globalCompositeOperation='screen';
+    ctx.fillStyle='rgba(255,0,0,1)';ctx.fillText(txt,x-5*glitch,y);
+    ctx.fillStyle='rgba(0,255,102,1)';ctx.fillText(txt,x,y);
+    ctx.fillStyle='rgba(0,0,255,1)';ctx.fillText(txt,x+5*glitch,y);
+    ctx.restore();
+  }else{
+    ctx.fillStyle='#00ff66';ctx.fillText(txt,x,y);
+  }
+}
+// Функция автопереноса (по словам, лимит ~30 символов)
+function wrapText(text, maxChars=30) {
+  const words = text.split(' ');
+  const lines = [];
+  let current = '';
+  for (let w of words) {
+    if ((current + w).length > maxChars) {
+      lines.push(current.trim());
+      current = w + ' ';
+    } else {
+      current += w + ' ';
+    }
+  }
+  lines.push(current.trim());
+  return lines;
+}
+
+// Основной цикл
+function loop(ts){
+  if(!playing)return;
+  if(!startTime)startTime=ts;
+  let elapsed=(ts-startTime)/1000;
+  cam.shake*=0.9; cam.zoom+=(1-cam.zoom)*0.2;
+  ctx.clearRect(0,0,W,H);
+  ctx.save();
+  ctx.translate(W/2,H/2); ctx.scale(cam.zoom,cam.zoom); ctx.translate(-W/2,-H/2);
+  ctx.translate((Math.random()-0.5)*cam.shake,(Math.random()-0.5)*cam.shake);
+  // bg
+  ctx.fillStyle='#08090c'; ctx.fillRect(0,0,W,H);
+  drawGrid();
+  // film grain
+  let imgData=ctx.getImageData(0,0,W,H);
+  let d=imgData.data;
+  for(let i=0;i<d.length;i+=4){let r=(Math.random()-0.5)*8;d[i]+=r;d[i+1]+=r;d[i+2]+=r;}
+  ctx.putImageData(imgData,0,0);
+
+  // шаг таймлайна
+  while(curStep<steps.length-1 && elapsed>=steps[curStep+1].time){
+    curStep++;
+    let t=steps[curStep].trigger;
+    if(t==='IMPACT')impact(); else if(t==='GLITCH')doGlitch(); else if(t==='FLASH')doFlash();
+  }
+
+  // текст
+  if(curStep<steps.length){
+    let step=steps[curStep];
+    ctx.font='bold 34px "Courier New", monospace'; ctx.textAlign='center'; ctx.textBaseline='middle';
+    const lines = wrapText(step.text, 28);
+    let yStart = H/2 - (lines.length-1)*40/2;
+    for (let i=0;i<lines.length;i++) {
+      drawText(lines[i], W/2, yStart + i*48);
+    }
+  }
+
+  // flash overlay
+  if(flash>0.01){ctx.fillStyle=`rgba(255,255,255,${flash})`;ctx.fillRect(0,0,W,H);flash*=0.8;}
+
+  // particles
+  let dt=1/60;
+  for(let i=particles.length-1;i>=0;i--){particles[i].upd(dt);particles[i].draw(ctx);if(particles[i].life<=0)particles.splice(i,1);}
+  glitch*=0.9;
+
+  ctx.restore();
+
+  if(elapsed<dur)requestAnimationFrame(loop);
+  else{
+    playing=false;
+    if(recordMode && mediaRecorder && mediaRecorder.state==='recording') mediaRecorder.stop();
+    document.getElementById('status').innerText='Просмотр завершён';
+    // показать кнопку скачивания, если была запись
+    if(recordMode) document.getElementById('download-btn').style.display='block';
+  }
+}
+
+// ========== ЗАПИСЬ ВИДЕО ==========
+function getMime(){
+  const types=['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+  for(let t of types) if(MediaRecorder.isTypeSupported(t)) return t;
+  return '';
+}
+async function startRecording(){
+  await ensureAudio();
+  if(audioCtx.state==='suspended') await audioCtx.resume();
+  let videoStream=canvas.captureStream(60);
+  let audioDest=audioCtx.createMediaStreamDestination();
+  masterGain.connect(audioDest);
+  let combined=new MediaStream([videoStream.getVideoTracks()[0], audioDest.stream.getAudioTracks()[0]]);
+  let mime=getMime();
+  if(!mime){alert('Запись не поддерживается');return;}
+  mediaRecorder=new MediaRecorder(combined,{mimeType:mime, videoBitsPerSecond:8500000});
+  recordedChunks=[];
+  mediaRecorder.ondataavailable=e=>{if(e.data.size>0)recordedChunks.push(e.data);};
+  mediaRecorder.onstop=()=>{
+    let blob=new Blob(recordedChunks,{type:'video/webm'});
+    let a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=`manifest_${series?.id||0}.webm`; a.click();
+    masterGain.disconnect(audioDest);
+    document.getElementById('download-btn').style.display='none';
+  };
+  mediaRecorder.start();
+}
+
+// ========== ЗАГРУЗКА СЕРИИ ==========
+window.loadAndPlaySeries=function(s, autoRecord=false){
+  if(playing){
+    if(recordMode && mediaRecorder && mediaRecorder.state==='recording') mediaRecorder.stop();
+    playing=false;
+  }
+  recordMode = autoRecord; // если true, включит запись
+  series=s;
+  steps=s.timeline.map(st=>({...st, text:st.text.replace(/\{\{USER_NAME\}\}/g, window.userNick)}));
+  dur=s.duration||15;
+  curStep=0; startTime=0; cam={x:0,y:0,zoom:1,shake:0}; glitch=0; flash=0; particles=[];
+  document.getElementById('status').innerText=`Воспроизведение серии ${s.id}...`;
+  document.getElementById('download-btn').style.display='none';
+
+  const startPlay = () => {
+    playing=true;
+    requestAnimationFrame(loop);
+  };
+
+  if (recordMode) {
+    startRecording().then(startPlay);
+  } else {
+    ensureAudio().then(() => {
+      if(audioCtx.state==='suspended') audioCtx.resume();
+      startPlay();
+    });
+  }
+};
+
+// ========== ИНТЕРАКТИВ ==========
+canvas.addEventListener('pointerdown',e=>{
+  if(!playing)return;
+  doGlitch();
+  let rect=canvas.getBoundingClientRect();
+  let sx=W/rect.width, sy=H/rect.height;
+  let x=(e.clientX-rect.left)*sx, y=(e.clientY-rect.top)*sy;
+  spawn(x,y,15,'#00ff66');
+});
+
+// ========== КНОПКИ ==========
+window.addEventListener('load',()=>{
+  document.querySelectorAll('button[data-series]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      let id=parseInt(b.dataset.series);
+      if(window.manifestSeries && window.manifestSeries[id]) {
+        // по умолчанию без записи, просто просмотр. Для записи можно зажать Shift или добавить отдельную кнопку
+        window.loadAndPlaySeries(window.manifestSeries[id], false);
+      } else alert('Серия не найдена');
+    });
+  });
+
+  // Кнопка для записи (админская) - можно скрыть в Mini App, оставить только для десктопа
+  document.getElementById('download-btn').addEventListener('click',()=>{
+    // уже скачан после onstop
+  });
+
+  if(window.Telegram?.WebApp){
+    Telegram.WebApp.ready();
+    Telegram.WebApp.setHeaderColor('#000');
+    Telegram.WebApp.setBackgroundColor('#000');
+  }
+});
+</script>
+<script src="data.js"></script>
+</body>
+</html>
